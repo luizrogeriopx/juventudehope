@@ -182,3 +182,7 @@
     radial-gradient(circle at 85% 80%, oklch(0.45 0.19 30 / 0.3), transparent 50%);
 }
 
+#lovable-badge {
+  display: none !important;
+}
+
