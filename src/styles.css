@@ -19,7 +19,11 @@
  */
 
 @theme inline {
+  --font-display: "Anton", "Arial Narrow", sans-serif;
+  --font-sans: "Barlow Condensed", system-ui, sans-serif;
+  --font-body: "Barlow", system-ui, sans-serif;
   --radius-sm: calc(var(--radius) - 4px);
+
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
