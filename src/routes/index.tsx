@@ -80,7 +80,7 @@ function Countdown() {
     <div className="border-b border-border px-6 py-6">
       <div className="mx-auto flex max-w-6xl flex-col items-center gap-4 sm:flex-row sm:justify-between">
         <p className="font-sans text-sm uppercase tracking-[0.35em] text-accent">
-          Sábado, 15 de agosto de 2026 · 14h
+          CONTAGEM REGRESSIVA
         </p>
         <div className="flex gap-3">
           {parts.map((p) => (
