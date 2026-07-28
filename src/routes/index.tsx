@@ -121,6 +121,9 @@ function Index() {
                 Conference
               </span>
             </h1>
+            <h2 className="mt-4 text-3xl uppercase tracking-[0.2em] text-fire md:text-4xl">
+              Recalculando a Rota
+            </h2>
             <p className="mt-6 max-w-md text-lg text-muted-foreground">
               A Burn Conference nasceu com o propósito de reunir pessoas apaixonadas por Jesus para
               viver um tempo de adoração, Palavra, Comunhão e Despertamento Espiritual.
