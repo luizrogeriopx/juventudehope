@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
 import poster from "@/assets/burn-post.jpg.asset.json";
 
 export const Route = createFileRoute("/")({
@@ -39,11 +40,76 @@ const programacao = [
   { dia: "Domingo", data: "16 de agosto", hora: "17h" },
 ];
 
+// Sábado, 15 de agosto de 2026, 14h (horário de Brasília, UTC-3)
+const EVENT_START = new Date("2026-08-15T14:00:00-03:00").getTime();
+
+const comoChegar = [
+  {
+    label: "Uber",
+    href: "https://m.uber.com/ul/?action=setPickup&pickup=my_location&dropoff[latitude]=-16.7603239&dropoff[longitude]=-49.2704948",
+  },
+  {
+    label: "Waze",
+    href: "https://waze.com/ul?ll=-16.7603239,-49.2704948&navigate=yes",
+  },
+  {
+    label: "Google Maps",
+    href: "https://www.google.com/maps/dir/?api=1&destination=-16.7603239,-49.2704948",
+  },
+];
+
+function Countdown() {
+  const [left, setLeft] = useState<number | null>(null);
+
+  useEffect(() => {
+    const tick = () => setLeft(Math.max(0, EVENT_START - Date.now()));
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  const s = Math.floor((left ?? 0) / 1000);
+  const parts = [
+    { label: "Dias", value: Math.floor(s / 86400) },
+    { label: "Horas", value: Math.floor((s % 86400) / 3600) },
+    { label: "Min", value: Math.floor((s % 3600) / 60) },
+    { label: "Seg", value: s % 60 },
+  ];
+
+  return (
+    <div className="border-b border-border px-6 py-6">
+      <div className="mx-auto flex max-w-6xl flex-col items-center gap-4 sm:flex-row sm:justify-between">
+        <p className="font-sans text-sm uppercase tracking-[0.35em] text-accent">
+          Sábado, 15 de agosto de 2026 · 14h
+        </p>
+        <div className="flex gap-3">
+          {parts.map((p) => (
+            <div
+              key={p.label}
+              className="min-w-[68px] rounded-md border border-border bg-card px-4 py-3 text-center"
+            >
+              <p className="font-display text-3xl leading-none text-primary">
+                {left === null ? "--" : String(p.value).padStart(2, "0")}
+              </p>
+              <p className="mt-1 font-sans text-xs uppercase tracking-[0.2em] text-muted-foreground">
+                {p.label}
+              </p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function Index() {
   return (
     <main className="grain-bg min-h-screen">
+      <Countdown />
+
       {/* HERO */}
       <section className="relative overflow-hidden px-6 pb-20 pt-16 md:pt-24">
+
         <div className="mx-auto grid max-w-6xl items-center gap-12 md:grid-cols-2">
           <div>
             <p className="font-sans text-sm uppercase tracking-[0.4em] text-accent">
@@ -130,18 +196,27 @@ function Index() {
           className="surface-ember mx-auto max-w-5xl rounded-lg p-10 text-primary-foreground md:p-16"
         >
           <p className="font-sans text-sm uppercase tracking-[0.4em] opacity-80">Local</p>
-          <h2 className="mt-3 text-4xl md:text-5xl">Igreja Esperança</h2>
+          <h2 className="mt-3 text-4xl uppercase md:text-5xl">
+            <span className="font-nexa font-extralight tracking-[0.15em]">Igreja</span>{" "}
+            <span className="font-montserrat font-extrabold tracking-tight">Esperança</span>
+          </h2>
           <p className="mt-4 font-sans text-xl uppercase tracking-wide">
             Av. Bartolomeu Bueno, Jardim Mont Serrat — Aparecida de Goiânia
           </p>
-          <a
-            href="https://www.google.com/maps/search/?api=1&query=Av.+Bartolomeu+Bueno,+Jardim+Mont+Serrat,+Aparecida+de+Goi%C3%A2nia"
-            target="_blank"
-            rel="noreferrer"
-            className="mt-8 inline-block rounded-md bg-background px-8 py-4 font-sans text-lg uppercase tracking-widest text-foreground"
-          >
-            Abrir no mapa
-          </a>
+          <div className="mt-8 flex flex-wrap gap-4">
+            {comoChegar.map((c) => (
+              <a
+                key={c.label}
+                href={c.href}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-block rounded-md bg-background px-8 py-4 font-sans text-lg uppercase tracking-widest text-foreground transition-transform hover:-translate-y-0.5"
+              >
+                {c.label}
+              </a>
+            ))}
+          </div>
+
         </div>
       </section>
 
