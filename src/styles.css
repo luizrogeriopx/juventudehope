@@ -150,5 +150,33 @@
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);
+    font-family: var(--font-body);
+  }
+
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-display);
+    letter-spacing: 0.01em;
+    text-transform: uppercase;
   }
 }
+
+@utility text-fire {
+  background: var(--gradient-fire);
+  background-clip: text;
+  color: transparent;
+}
+
+@utility surface-ember {
+  background: var(--gradient-fire);
+  box-shadow: var(--shadow-ember);
+}
+
+@utility grain-bg {
+  background-color: var(--background);
+  background-image:
+    radial-gradient(circle at 20% 10%, oklch(0.5 0.2 27 / 0.35), transparent 55%),
+    radial-gradient(circle at 85% 80%, oklch(0.45 0.19 30 / 0.3), transparent 50%);
+}
+
