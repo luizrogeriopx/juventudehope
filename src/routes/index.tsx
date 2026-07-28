@@ -130,8 +130,16 @@ function Index() {
             </p>
             <div className="mt-8 flex flex-wrap gap-4">
               <a
-                href="#programacao"
+                href="https://ticketsprime.com.br/detalhe/7949/burn-conference"
+                target="_blank"
+                rel="noreferrer"
                 className="surface-ember rounded-md px-8 py-4 font-sans text-lg uppercase tracking-widest text-primary-foreground transition-transform hover:-translate-y-0.5"
+              >
+                Fazer Inscrição
+              </a>
+              <a
+                href="#programacao"
+                className="rounded-md border border-border px-8 py-4 font-sans text-lg uppercase tracking-widest text-foreground transition-colors hover:bg-secondary"
               >
                 15 e 16 de Agosto
               </a>
@@ -173,6 +181,16 @@ function Index() {
               </div>
             ))}
           </div>
+          <div className="mt-12 text-center">
+            <a
+              href="https://ticketsprime.com.br/detalhe/7949/burn-conference"
+              target="_blank"
+              rel="noreferrer"
+              className="surface-ember inline-block rounded-md px-8 py-4 font-sans text-lg uppercase tracking-widest text-primary-foreground transition-transform hover:-translate-y-0.5"
+            >
+              Fazer Inscrição
+            </a>
+          </div>
         </div>
       </section>
 
@@ -190,6 +208,16 @@ function Index() {
               </li>
             ))}
           </ul>
+          <div className="mt-12 text-center">
+            <a
+              href="https://ticketsprime.com.br/detalhe/7949/burn-conference"
+              target="_blank"
+              rel="noreferrer"
+              className="surface-ember inline-block rounded-md px-8 py-4 font-sans text-lg uppercase tracking-widest text-primary-foreground transition-transform hover:-translate-y-0.5"
+            >
+              Fazer Inscrição
+            </a>
+          </div>
         </div>
       </section>
 
