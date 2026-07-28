@@ -16,3 +16,9 @@ export interface Participant {
   congregation: string;
   createdAt: string;
 }
+
+export interface AdminConfig {
+  email: string;
+  passwordHash: string;
+  isTempPassword: boolean;
+}

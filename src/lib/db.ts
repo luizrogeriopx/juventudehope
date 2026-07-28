@@ -1,4 +1,4 @@
-import { Participant } from "./types";
+import { Participant, AdminConfig } from "./types";
 
 // Dynamic imports to prevent bundler issues on the client side
 async function getFs() {
@@ -9,10 +9,18 @@ async function getPath() {
   return await import("node:path");
 }
 
-async function getDbPath(): Promise<string> {
+async function getCrypto() {
+  return await import("node:crypto");
+}
+
+export async function hashPassword(password: string): Promise<string> {
+  const crypto = await getCrypto();
+  return crypto.createHash("sha256").update(password).digest("hex");
+}
+
+async function getDbPath(filename: string): Promise<string> {
   const path = await getPath();
-  // Store the JSON file in the project's root "data" directory
-  return path.join(process.cwd(), "data", "registrations.json");
+  return path.join(process.cwd(), "data", filename);
 }
 
 async function ensureDirectoryExists(filePath: string) {
@@ -28,21 +36,20 @@ async function ensureDirectoryExists(filePath: string) {
 
 export async function readParticipants(): Promise<Participant[]> {
   const fs = await getFs();
-  const dbPath = await getDbPath();
+  const dbPath = await getDbPath("registrations.json");
   await ensureDirectoryExists(dbPath);
 
   try {
     const data = await fs.readFile(dbPath, "utf-8");
     return JSON.parse(data) as Participant[];
   } catch (error) {
-    // If file doesn't exist, return empty array
     return [];
   }
 }
 
 export async function writeParticipants(participants: Participant[]): Promise<void> {
   const fs = await getFs();
-  const dbPath = await getDbPath();
+  const dbPath = await getDbPath("registrations.json");
   await ensureDirectoryExists(dbPath);
   await fs.writeFile(dbPath, JSON.stringify(participants, null, 2), "utf-8");
 }
@@ -52,7 +59,6 @@ export async function addParticipant(
 ): Promise<Participant> {
   const participants = await readParticipants();
 
-  // Normalize CPF to check for duplicates (remove dots, hyphens, spaces)
   const normalizedCpf = data.cpf.replace(/\D/g, "");
   const duplicate = participants.find((p) => p.cpf.replace(/\D/g, "") === normalizedCpf);
 
@@ -60,7 +66,6 @@ export async function addParticipant(
     throw new Error("CPF já cadastrado para outro participante.");
   }
 
-  // Auto-generate ID and timestamp
   const newParticipant: Participant = {
     ...data,
     id: Math.random().toString(36).substring(2, 11),
@@ -82,4 +87,35 @@ export async function deleteParticipant(id: string): Promise<boolean> {
 
   await writeParticipants(filtered);
   return true;
+}
+
+// Admin configuration helper
+export async function readAdminConfig(): Promise<AdminConfig> {
+  const fs = await getFs();
+  const dbPath = await getDbPath("admin.json");
+  await ensureDirectoryExists(dbPath);
+
+  try {
+    const data = await fs.readFile(dbPath, "utf-8");
+    return JSON.parse(data) as AdminConfig;
+  } catch (error) {
+    // If not found, seed with initial credentials:
+    // Email: luizrogeriopx@gmail.com
+    // Password: 123456 (hashed)
+    // isTempPassword: true
+    const initialConfig: AdminConfig = {
+      email: "luizrogeriopx@gmail.com",
+      passwordHash: await hashPassword("123456"),
+      isTempPassword: true,
+    };
+    await writeAdminConfig(initialConfig);
+    return initialConfig;
+  }
+}
+
+export async function writeAdminConfig(config: AdminConfig): Promise<void> {
+  const fs = await getFs();
+  const dbPath = await getDbPath("admin.json");
+  await ensureDirectoryExists(dbPath);
+  await fs.writeFile(dbPath, JSON.stringify(config, null, 2), "utf-8");
 }

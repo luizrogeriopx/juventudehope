@@ -11,12 +11,17 @@ import {
   LogOut,
   Church,
   TrendingUp,
-  MapPin,
-  Calendar,
+  Mail,
+  KeyRound,
+  Eye,
+  EyeOff,
+  Loader2,
+  ShieldAlert,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -25,7 +30,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Participant } from "@/lib/types";
-import { getParticipants, deleteParticipantFn } from "@/lib/server-functions";
+import {
+  getParticipants,
+  deleteParticipantFn,
+  loginAdmin,
+  changeAdminPassword,
+} from "@/lib/server-functions";
 import { REGIONALS_DATA } from "@/lib/regionals";
 
 export const Route = createFileRoute("/admin")({
@@ -39,9 +49,23 @@ export const Route = createFileRoute("/admin")({
 });
 
 function AdminPage() {
-  const [passcodeInput, setPasscodeInput] = useState("");
+  // Authentication states
+  const [emailInput, setEmailInput] = useState("");
+  const [passwordInput, setPasswordInput] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
+  
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [passcode, setPasscode] = useState("");
+  const [adminEmail, setAdminEmail] = useState("");
+  const [adminPasswordHash, setAdminPasswordHash] = useState("");
+  
+  // Password change states (forced first access)
+  const [isTempPassword, setIsTempPassword] = useState(false);
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+  
+  // Dashboard data states
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
@@ -51,23 +75,35 @@ function AdminPage() {
   // Check authentication on mount
   useEffect(() => {
     if (typeof window !== "undefined") {
-      const stored = localStorage.getItem("burn_admin_passcode") || "";
-      if (stored === "burn2026") {
-        setPasscode(stored);
-        setIsAuthenticated(true);
+      const storedEmail = localStorage.getItem("burn_admin_email") || "";
+      const storedHash = localStorage.getItem("burn_admin_hash") || "";
+      const storedIsTemp = localStorage.getItem("burn_admin_istemp") === "true";
+
+      if (storedEmail && storedHash) {
+        setAdminEmail(storedEmail);
+        setAdminPasswordHash(storedHash);
+        
+        if (storedIsTemp) {
+          setIsTempPassword(true);
+          setIsAuthenticated(false); // Make them change password first
+        } else {
+          setIsAuthenticated(true);
+        }
       }
     }
   }, []);
 
   // Fetch participants when authenticated
-  const loadData = async (currentPasscode: string) => {
+  const loadData = async (email: string, hash: string) => {
     setLoading(true);
     try {
-      const data = await getParticipants({ data: currentPasscode });
+      const data = await getParticipants({
+        data: { email, passwordHash: hash },
+      });
       setParticipants(data);
     } catch (error) {
       console.error(error);
-      toast.error("Erro ao carregar participantes. Verifique a senha.");
+      toast.error("Sessão expirada ou não autorizada.");
       handleLogout();
     } finally {
       setLoading(false);
@@ -75,28 +111,109 @@ function AdminPage() {
   };
 
   useEffect(() => {
-    if (isAuthenticated && passcode) {
-      loadData(passcode);
+    if (isAuthenticated && adminEmail && adminPasswordHash) {
+      loadData(adminEmail, adminPasswordHash);
     }
-  }, [isAuthenticated, passcode]);
+  }, [isAuthenticated, adminEmail, adminPasswordHash]);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (passcodeInput === "burn2026") {
-      localStorage.setItem("burn_admin_passcode", passcodeInput);
-      setPasscode(passcodeInput);
-      setIsAuthenticated(true);
-      toast.success("Acesso autorizado!");
-    } else {
-      toast.error("Senha incorreta!");
+    if (!emailInput || !passwordInput) {
+      toast.warning("Preencha todos os campos.");
+      return;
+    }
+
+    setIsLoggingIn(true);
+    try {
+      const result = await loginAdmin({
+        data: { email: emailInput, password: passwordInput },
+      });
+
+      if (result.success && result.email && result.passwordHash) {
+        localStorage.setItem("burn_admin_email", result.email);
+        localStorage.setItem("burn_admin_hash", result.passwordHash);
+        localStorage.setItem("burn_admin_istemp", String(result.isTempPassword));
+
+        setAdminEmail(result.email);
+        setAdminPasswordHash(result.passwordHash);
+
+        if (result.isTempPassword) {
+          setIsTempPassword(true);
+          toast.warning("Senha provisória detectada. Você deve alterá-la para continuar.");
+        } else {
+          setIsAuthenticated(true);
+          toast.success("Acesso autorizado!");
+        }
+      } else {
+        toast.error(result.error || "Dados de acesso incorretos.");
+      }
+    } catch (error) {
+      console.error(error);
+      toast.error("Erro ao conectar com o servidor.");
+    } finally {
+      setIsLoggingIn(false);
+    }
+  };
+
+  const handlePasswordChangeSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newPassword || !confirmPassword) {
+      toast.warning("Preencha todos os campos.");
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      toast.warning("A nova senha deve ter no mínimo 6 caracteres.");
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      toast.error("As senhas não coincidem.");
+      return;
+    }
+
+    setIsChangingPassword(true);
+    try {
+      const result = await changeAdminPassword({
+        data: {
+          email: adminEmail,
+          passwordHash: adminPasswordHash,
+          newPassword: newPassword,
+        },
+      });
+
+      if (result.success && result.passwordHash) {
+        localStorage.setItem("burn_admin_hash", result.passwordHash);
+        localStorage.setItem("burn_admin_istemp", "false");
+
+        setAdminPasswordHash(result.passwordHash);
+        setIsTempPassword(false);
+        setIsAuthenticated(true);
+        toast.success("Senha alterada com sucesso! Bem-vindo ao painel.");
+      } else {
+        toast.error(result.error || "Erro ao alterar a senha.");
+      }
+    } catch (error) {
+      console.error(error);
+      toast.error("Erro ao conectar com o servidor.");
+    } finally {
+      setIsChangingPassword(false);
     }
   };
 
   const handleLogout = () => {
-    localStorage.removeItem("burn_admin_passcode");
-    setPasscode("");
-    setPasscodeInput("");
+    localStorage.removeItem("burn_admin_email");
+    localStorage.removeItem("burn_admin_hash");
+    localStorage.removeItem("burn_admin_istemp");
+
+    setAdminEmail("");
+    setAdminPasswordHash("");
+    setIsTempPassword(false);
     setIsAuthenticated(false);
+    setEmailInput("");
+    setPasswordInput("");
+    setNewPassword("");
+    setConfirmPassword("");
     setParticipants([]);
     toast.info("Sessão encerrada.");
   };
@@ -107,11 +224,12 @@ function AdminPage() {
     }
 
     try {
-      const result = await deleteParticipantFn({ data: { id, passcode } });
+      const result = await deleteParticipantFn({
+        data: { email: adminEmail, passwordHash: adminPasswordHash, id },
+      });
       if (result.success) {
         toast.success("Participante removido com sucesso!");
-        // Refresh list
-        loadData(passcode);
+        loadData(adminEmail, adminPasswordHash);
       } else {
         toast.error("Erro ao remover participante.");
       }
@@ -198,39 +316,79 @@ function AdminPage() {
     }
   });
 
-  if (!isAuthenticated) {
+  // Render Lock screen
+  if (!isAuthenticated && !isTempPassword) {
     return (
       <main className="grain-bg min-h-screen flex items-center justify-center p-6 text-foreground">
         <Card className="w-full max-w-md border-border/50 bg-card/65 backdrop-blur-md shadow-2xl relative overflow-hidden">
-          <div className="absolute top-0 left-0 w-full h-1 surface-ember" />
-          <CardHeader className="text-center">
+          <div className="absolute top-0 left-0 w-full h-1.5 surface-ember" />
+          <CardHeader className="text-center pb-6">
             <div className="mx-auto w-12 h-12 rounded-full bg-accent/10 flex items-center justify-center mb-2 border border-accent/20">
               <Lock className="w-6 h-6 text-accent" />
             </div>
             <CardTitle className="text-2xl font-display uppercase tracking-wide">
-              Área Restrita
+              Acesso do Administrador
             </CardTitle>
             <CardDescription>
-              Insira a senha do administrador para acessar os dados.
+              Entre com suas credenciais de e-mail e senha.
             </CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleLogin} className="space-y-4">
               <div className="space-y-2">
-                <Input
-                  type="password"
-                  placeholder="Senha de Acesso"
-                  className="bg-secondary/40 border-border text-foreground text-center text-lg tracking-widest"
-                  value={passcodeInput}
-                  onChange={(e) => setPasscodeInput(e.target.value)}
-                  autoFocus
-                />
+                <Label htmlFor="email">E-mail</Label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-3 h-4.5 w-4.5 text-muted-foreground" />
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="admin@email.com"
+                    className="bg-secondary/40 border-border text-foreground pl-10"
+                    value={emailInput}
+                    onChange={(e) => setEmailInput(e.target.value)}
+                    required
+                  />
+                </div>
               </div>
+
+              <div className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <Label htmlFor="password">Senha</Label>
+                </div>
+                <div className="relative">
+                  <KeyRound className="absolute left-3 top-3 h-4.5 w-4.5 text-muted-foreground" />
+                  <Input
+                    id="password"
+                    type={showPassword ? "text" : "password"}
+                    placeholder="Sua senha"
+                    className="bg-secondary/40 border-border text-foreground pl-10 pr-10"
+                    value={passwordInput}
+                    onChange={(e) => setPasswordInput(e.target.value)}
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-3 text-muted-foreground hover:text-foreground"
+                  >
+                    {showPassword ? <EyeOff className="h-4.5 w-4.5" /> : <Eye className="h-4.5 w-4.5" />}
+                  </button>
+                </div>
+              </div>
+
               <Button
                 type="submit"
-                className="w-full surface-ember text-primary-foreground font-sans uppercase tracking-widest"
+                disabled={isLoggingIn}
+                className="w-full surface-ember text-primary-foreground font-sans uppercase tracking-widest py-5 mt-2"
               >
-                Entrar no Painel
+                {isLoggingIn ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Entrando...
+                  </>
+                ) : (
+                  "Entrar no Painel"
+                )}
               </Button>
             </form>
           </CardContent>
@@ -239,6 +397,83 @@ function AdminPage() {
     );
   }
 
+  // Render Mandatory Password Change screen
+  if (!isAuthenticated && isTempPassword) {
+    return (
+      <main className="grain-bg min-h-screen flex items-center justify-center p-6 text-foreground">
+        <Card className="w-full max-w-md border-border/50 bg-card/65 backdrop-blur-md shadow-2xl relative overflow-hidden">
+          <div className="absolute top-0 left-0 w-full h-1.5 bg-yellow-500" />
+          <CardHeader className="text-center pb-4">
+            <div className="mx-auto w-12 h-12 rounded-full bg-yellow-500/10 flex items-center justify-center mb-2 border border-yellow-500/30">
+              <ShieldAlert className="w-6 h-6 text-yellow-500 animate-bounce" />
+            </div>
+            <CardTitle className="text-xl font-display uppercase tracking-wide text-yellow-500">
+              Alteração de Senha Obrigatória
+            </CardTitle>
+            <CardDescription className="text-sm">
+              Você realizou login com uma senha provisória. Por segurança, altere sua senha para prosseguir.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handlePasswordChangeSubmit} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="newPassword">Nova Senha (mín. 6 caracteres)</Label>
+                <Input
+                  id="newPassword"
+                  type="password"
+                  placeholder="Nova senha"
+                  className="bg-secondary/40 border-border text-foreground"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  required
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="confirmPassword">Confirmar Nova Senha</Label>
+                <Input
+                  id="confirmPassword"
+                  type="password"
+                  placeholder="Confirme a nova senha"
+                  className="bg-secondary/40 border-border text-foreground"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  required
+                />
+              </div>
+
+              <div className="flex flex-col gap-2 pt-2">
+                <Button
+                  type="submit"
+                  disabled={isChangingPassword}
+                  className="w-full bg-yellow-600 hover:bg-yellow-500 text-white font-sans uppercase tracking-widest py-5"
+                >
+                  {isChangingPassword ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Salvando...
+                    </>
+                  ) : (
+                    "Salvar e Entrar"
+                  )}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleLogout}
+                  className="border-border hover:bg-secondary font-sans uppercase tracking-widest py-5"
+                >
+                  Cancelar e Sair
+                </Button>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
+      </main>
+    );
+  }
+
+  // Render authenticated admin dashboard
   return (
     <main className="grain-bg min-h-screen pb-16 text-foreground">
       {/* Header */}
@@ -253,7 +488,7 @@ function AdminPage() {
                 Painel Admin
               </h1>
               <span className="text-xs text-muted-foreground uppercase tracking-widest">
-                BURN Conference 2025
+                BURN Conference 2025 · {adminEmail}
               </span>
             </div>
           </div>
@@ -261,7 +496,7 @@ function AdminPage() {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => loadData(passcode)}
+              onClick={() => loadData(adminEmail, adminPasswordHash)}
               disabled={loading}
               className="border-border bg-secondary/30 hover:bg-secondary text-xs uppercase font-sans tracking-wider"
             >
@@ -443,7 +678,6 @@ function AdminPage() {
                   </tr>
                 ) : (
                   filteredParticipants.map((p) => {
-                    // Date display format
                     const displayBirth = p.birthDate.split("-").reverse().join("/");
 
                     return (
