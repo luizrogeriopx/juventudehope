@@ -122,8 +122,8 @@ function Index() {
               </span>
             </h1>
             <p className="mt-6 max-w-md text-lg text-muted-foreground">
-              Recalculando a Rota. Dois dias de fogo, louvor e palavra para uma geração que não
-              quer viver morna.
+              A Burn Conference nasceu com o propósito de reunir pessoas apaixonadas por Jesus para
+              viver um tempo de adoração, Palavra, Comunhão e Despertamento Espiritual.
             </p>
             <div className="mt-8 flex flex-wrap gap-4">
               <a
