@@ -1,5 +1,6 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { Flame } from "lucide-react";
 import poster from "@/assets/burn-post.jpg.asset.json";
 
 export const Route = createFileRoute("/")({
@@ -137,6 +138,13 @@ function Index() {
               >
                 Fazer Inscrição
               </a>
+              <Link
+                to="/sorteio"
+                className="rounded-md border border-accent bg-accent/15 px-8 py-4 font-sans text-lg uppercase tracking-widest text-accent font-semibold transition-transform hover:-translate-y-0.5 flex items-center gap-2"
+              >
+                <Flame className="w-5 h-5 text-accent animate-pulse" />
+                Participar do Sorteio
+              </Link>
               <a
                 href="#programacao"
                 className="rounded-md border border-border px-8 py-4 font-sans text-lg uppercase tracking-widest text-foreground transition-colors hover:bg-secondary"
