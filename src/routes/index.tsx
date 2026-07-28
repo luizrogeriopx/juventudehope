@@ -196,18 +196,27 @@ function Index() {
           className="surface-ember mx-auto max-w-5xl rounded-lg p-10 text-primary-foreground md:p-16"
         >
           <p className="font-sans text-sm uppercase tracking-[0.4em] opacity-80">Local</p>
-          <h2 className="mt-3 text-4xl md:text-5xl">Igreja Esperança</h2>
+          <h2 className="mt-3 text-4xl uppercase md:text-5xl">
+            <span className="font-nexa font-extralight tracking-[0.15em]">Igreja</span>{" "}
+            <span className="font-montserrat font-extrabold tracking-tight">Esperança</span>
+          </h2>
           <p className="mt-4 font-sans text-xl uppercase tracking-wide">
             Av. Bartolomeu Bueno, Jardim Mont Serrat — Aparecida de Goiânia
           </p>
-          <a
-            href="https://www.google.com/maps/search/?api=1&query=Av.+Bartolomeu+Bueno,+Jardim+Mont+Serrat,+Aparecida+de+Goi%C3%A2nia"
-            target="_blank"
-            rel="noreferrer"
-            className="mt-8 inline-block rounded-md bg-background px-8 py-4 font-sans text-lg uppercase tracking-widest text-foreground"
-          >
-            Abrir no mapa
-          </a>
+          <div className="mt-8 flex flex-wrap gap-4">
+            {comoChegar.map((c) => (
+              <a
+                key={c.label}
+                href={c.href}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-block rounded-md bg-background px-8 py-4 font-sans text-lg uppercase tracking-widest text-foreground transition-transform hover:-translate-y-0.5"
+              >
+                {c.label}
+              </a>
+            ))}
+          </div>
+
         </div>
       </section>
 
