@@ -14,7 +14,81 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      admin_config: {
+        Row: {
+          email: string
+          id: number
+          is_temp_password: boolean
+          password_hash: string
+          updated_at: string
+        }
+        Insert: {
+          email: string
+          id?: number
+          is_temp_password?: boolean
+          password_hash: string
+          updated_at?: string
+        }
+        Update: {
+          email?: string
+          id?: number
+          is_temp_password?: boolean
+          password_hash?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      participants: {
+        Row: {
+          birth_date: string
+          city: string
+          complement: string | null
+          congregation: string
+          cpf: string
+          created_at: string
+          email: string
+          full_name: string
+          id: string
+          neighborhood: string
+          phone: string
+          regional: string
+          state: string
+          street: string
+        }
+        Insert: {
+          birth_date: string
+          city: string
+          complement?: string | null
+          congregation: string
+          cpf: string
+          created_at?: string
+          email: string
+          full_name: string
+          id?: string
+          neighborhood: string
+          phone: string
+          regional: string
+          state: string
+          street: string
+        }
+        Update: {
+          birth_date?: string
+          city?: string
+          complement?: string | null
+          congregation?: string
+          cpf?: string
+          created_at?: string
+          email?: string
+          full_name?: string
+          id?: string
+          neighborhood?: string
+          phone?: string
+          regional?: string
+          state?: string
+          street?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
