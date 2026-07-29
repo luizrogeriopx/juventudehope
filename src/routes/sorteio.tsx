@@ -278,6 +278,10 @@ function SorteioPage() {
               <p>Os sorteios acontecerão ao longo da BURN Conference.</p>
             </div>
 
+            <div className="rounded-lg bg-amber-500/10 border border-amber-500/30 p-4 text-center text-xs text-amber-400 font-medium">
+              ⚠️ Essa não é a sua inscrição para a conferência, é apenas um cadastro para participar dos sorteios que acontecerão durante a conferência!
+            </div>
+
             <div className="flex flex-col gap-3 pt-2">
               <Button
                 asChild
@@ -321,7 +325,7 @@ function SorteioPage() {
       <div className="max-w-2xl mx-auto px-6 pt-10">
         <div className="text-center mb-8">
           <h1 className="text-4xl font-display uppercase tracking-wider mb-2 bg-gradient-to-r from-orange-400 via-red-500 to-yellow-500 bg-clip-text text-transparent">
-            {activeTab === "register" ? "Inscrição para Sorteio" : "Consultar Sorteio"}
+            {activeTab === "register" ? "Participar do Sorteio" : "Consultar Participação"}
           </h1>
           <p className="text-muted-foreground">
             {activeTab === "register"
@@ -347,7 +351,7 @@ function SorteioPage() {
                     : "border-transparent text-muted-foreground hover:text-foreground"
                 }`}
               >
-                Nova Inscrição
+                Participar
               </button>
               <button
                 type="button"
@@ -358,7 +362,7 @@ function SorteioPage() {
                     : "border-transparent text-muted-foreground hover:text-foreground"
                 }`}
               >
-                Consultar Inscrição
+                Consultar Participação
               </button>
             </div>
 
@@ -686,7 +690,7 @@ function SorteioPage() {
                         Buscando...
                       </>
                     ) : (
-                      "Consultar Inscrição"
+                      "Consultar Participação"
                     )}
                   </Button>
                 </div>
@@ -722,6 +726,10 @@ function SorteioPage() {
                           {queryResult.congregation} ({queryResult.regional})
                         </p>
                       </div>
+                    </div>
+
+                    <div className="rounded-lg bg-amber-500/10 border border-amber-500/30 p-4 text-center text-xs text-amber-400 font-medium mt-4">
+                      ⚠️ Essa não é a sua inscrição para a conferência, é apenas um cadastro para participar dos sorteios que acontecerão durante a conferência!
                     </div>
                   </div>
                 )}
