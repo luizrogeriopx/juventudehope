@@ -16,36 +16,34 @@ export const registerParticipant = createServerFn({ method: "POST" })
 export const loginAdmin = createServerFn({ method: "POST" })
   .validator((credentials: { email: string; password: string }) => credentials)
   .handler(async ({ data: { email, password } }) => {
-    const { readAdminConfig, hashPassword } = await import("./db.server");
-    const adminConfig = await readAdminConfig();
+    const { getAdminByEmail, hashPassword } = await import("./db.server");
+    const admin = await getAdminByEmail(email);
 
-    if (adminConfig.email.toLowerCase() !== email.toLowerCase()) {
+    if (!admin) {
       return { success: false, error: "E-mail ou senha incorretos." };
     }
 
     const hashedInput = hashPassword(password);
-    if (adminConfig.passwordHash !== hashedInput) {
+    if (admin.passwordHash !== hashedInput) {
       return { success: false, error: "E-mail ou senha incorretos." };
     }
 
     return {
       success: true,
-      email: adminConfig.email,
-      passwordHash: adminConfig.passwordHash,
-      isTempPassword: adminConfig.isTempPassword,
+      email: admin.email,
+      passwordHash: admin.passwordHash,
+      isTempPassword: admin.isTempPassword,
+      isSuperAdmin: admin.isSuperAdmin,
     };
   });
 
 export const changeAdminPassword = createServerFn({ method: "POST" })
   .validator((payload: { email: string; passwordHash: string; newPassword: string }) => payload)
   .handler(async ({ data: { email, passwordHash, newPassword } }) => {
-    const { readAdminConfig, writeAdminConfig, hashPassword } = await import("./db.server");
-    const adminConfig = await readAdminConfig();
+    const { getAdminByEmail, updateAdminPassword, hashPassword } = await import("./db.server");
+    const admin = await getAdminByEmail(email);
 
-    if (
-      adminConfig.email.toLowerCase() !== email.toLowerCase() ||
-      adminConfig.passwordHash !== passwordHash
-    ) {
+    if (!admin || admin.passwordHash !== passwordHash) {
       return { success: false, error: "Sessão inválida ou não autorizada." };
     }
 
@@ -54,10 +52,7 @@ export const changeAdminPassword = createServerFn({ method: "POST" })
     }
 
     const newHash = hashPassword(newPassword);
-    adminConfig.passwordHash = newHash;
-    adminConfig.isTempPassword = false;
-
-    await writeAdminConfig(adminConfig);
+    await updateAdminPassword(email, newHash, false);
 
     return {
       success: true,
@@ -68,12 +63,9 @@ export const changeAdminPassword = createServerFn({ method: "POST" })
 export const getParticipants = createServerFn({ method: "GET" })
   .validator((credentials: { email: string; passwordHash: string }) => credentials)
   .handler(async ({ data: { email, passwordHash } }) => {
-    const { readAdminConfig, readParticipants } = await import("./db.server");
-    const adminConfig = await readAdminConfig();
-    if (
-      adminConfig.email.toLowerCase() !== email.toLowerCase() ||
-      adminConfig.passwordHash !== passwordHash
-    ) {
+    const { getAdminByEmail, readParticipants } = await import("./db.server");
+    const admin = await getAdminByEmail(email);
+    if (!admin || admin.passwordHash !== passwordHash) {
       throw new Error("Não autorizado");
     }
     return await readParticipants();
@@ -82,16 +74,63 @@ export const getParticipants = createServerFn({ method: "GET" })
 export const deleteParticipantFn = createServerFn({ method: "POST" })
   .validator((payload: { email: string; passwordHash: string; id: string }) => payload)
   .handler(async ({ data: { email, passwordHash, id } }) => {
-    const { readAdminConfig, deleteParticipant } = await import("./db.server");
-    const adminConfig = await readAdminConfig();
-    if (
-      adminConfig.email.toLowerCase() !== email.toLowerCase() ||
-      adminConfig.passwordHash !== passwordHash
-    ) {
+    const { getAdminByEmail, deleteParticipant } = await import("./db.server");
+    const admin = await getAdminByEmail(email);
+    if (!admin || admin.passwordHash !== passwordHash) {
       throw new Error("Não autorizado");
     }
     const success = await deleteParticipant(id);
     return { success };
+  });
+
+export const getAdmins = createServerFn({ method: "GET" })
+  .validator((credentials: { email: string; passwordHash: string }) => credentials)
+  .handler(async ({ data: { email, passwordHash } }) => {
+    const { getAdminByEmail, listAdminsDb } = await import("./db.server");
+    const admin = await getAdminByEmail(email);
+    if (!admin || admin.passwordHash !== passwordHash || !admin.isSuperAdmin) {
+      throw new Error("Não autorizado");
+    }
+    return await listAdminsDb();
+  });
+
+export const createAdminFn = createServerFn({ method: "POST" })
+  .validator(
+    (payload: {
+      email: string;
+      passwordHash: string;
+      newAdminEmail: string;
+      isSuperAdmin: boolean;
+    }) => payload
+  )
+  .handler(async ({ data: { email, passwordHash, newAdminEmail, isSuperAdmin } }) => {
+    const { getAdminByEmail, createAdminDb } = await import("./db.server");
+    const admin = await getAdminByEmail(email);
+    if (!admin || admin.passwordHash !== passwordHash || !admin.isSuperAdmin) {
+      return { success: false, error: "Não autorizado" };
+    }
+    try {
+      const result = await createAdminDb(newAdminEmail, isSuperAdmin);
+      return { success: true, admin: result };
+    } catch (error: any) {
+      return { success: false, error: error.message || "Erro desconhecido" };
+    }
+  });
+
+export const deleteAdminFn = createServerFn({ method: "POST" })
+  .validator((payload: { email: string; passwordHash: string; adminIdToDelete: string }) => payload)
+  .handler(async ({ data: { email, passwordHash, adminIdToDelete } }) => {
+    const { getAdminByEmail, deleteAdminDb } = await import("./db.server");
+    const admin = await getAdminByEmail(email);
+    if (!admin || admin.passwordHash !== passwordHash || !admin.isSuperAdmin) {
+      return { success: false, error: "Não autorizado" };
+    }
+    try {
+      const success = await deleteAdminDb(adminIdToDelete, admin.id);
+      return { success };
+    } catch (error: any) {
+      return { success: false, error: error.message || "Erro desconhecido" };
+    }
   });
 
 export const getParticipantByCpf = createServerFn({ method: "POST" })

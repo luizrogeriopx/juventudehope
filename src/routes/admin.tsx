@@ -17,6 +17,8 @@ import {
   EyeOff,
   Loader2,
   ShieldAlert,
+  Shield,
+  UserPlus,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -35,6 +37,9 @@ import {
   deleteParticipantFn,
   loginAdmin,
   changeAdminPassword,
+  getAdmins,
+  createAdminFn,
+  deleteAdminFn,
 } from "@/lib/server-functions";
 import { REGIONALS_DATA } from "@/lib/regionals";
 
@@ -48,7 +53,7 @@ export const Route = createFileRoute("/admin")({
   component: AdminPage,
 });
 
-function AdminPage() {
+export function AdminPage({ defaultTab = "participants" }: { defaultTab?: "participants" | "admins" }) {
   // Authentication states
   const [emailInput, setEmailInput] = useState("");
   const [passwordInput, setPasswordInput] = useState("");
@@ -58,6 +63,7 @@ function AdminPage() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [adminEmail, setAdminEmail] = useState("");
   const [adminPasswordHash, setAdminPasswordHash] = useState("");
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   
   // Password change states (forced first access)
   const [isTempPassword, setIsTempPassword] = useState(false);
@@ -72,16 +78,26 @@ function AdminPage() {
   const [filterRegional, setFilterRegional] = useState<string>("all");
   const [filterCongregation, setFilterCongregation] = useState<string>("all");
 
+  // Super admin / admin tab state
+  const [activeAdminTab, setActiveAdminTab] = useState<"participants" | "admins">(defaultTab);
+  const [adminsList, setAdminsList] = useState<any[]>([]);
+  const [loadingAdmins, setLoadingAdmins] = useState(false);
+  const [newAdminEmail, setNewAdminEmail] = useState("");
+  const [newAdminIsSuper, setNewAdminIsSuper] = useState(false);
+  const [isCreatingAdmin, setIsCreatingAdmin] = useState(false);
+
   // Check authentication on mount
   useEffect(() => {
     if (typeof window !== "undefined") {
       const storedEmail = localStorage.getItem("burn_admin_email") || "";
       const storedHash = localStorage.getItem("burn_admin_hash") || "";
       const storedIsTemp = localStorage.getItem("burn_admin_istemp") === "true";
+      const storedIsSuper = localStorage.getItem("burn_admin_issuper") === "true";
 
       if (storedEmail && storedHash) {
         setAdminEmail(storedEmail);
         setAdminPasswordHash(storedHash);
+        setIsSuperAdmin(storedIsSuper);
         
         if (storedIsTemp) {
           setIsTempPassword(true);
@@ -133,9 +149,11 @@ function AdminPage() {
         localStorage.setItem("burn_admin_email", result.email);
         localStorage.setItem("burn_admin_hash", result.passwordHash);
         localStorage.setItem("burn_admin_istemp", String(result.isTempPassword));
+        localStorage.setItem("burn_admin_issuper", String(result.isSuperAdmin));
 
         setAdminEmail(result.email);
         setAdminPasswordHash(result.passwordHash);
+        setIsSuperAdmin(!!result.isSuperAdmin);
 
         if (result.isTempPassword) {
           setIsTempPassword(true);
@@ -205,17 +223,95 @@ function AdminPage() {
     localStorage.removeItem("burn_admin_email");
     localStorage.removeItem("burn_admin_hash");
     localStorage.removeItem("burn_admin_istemp");
+    localStorage.removeItem("burn_admin_issuper");
 
     setAdminEmail("");
     setAdminPasswordHash("");
     setIsTempPassword(false);
+    setIsSuperAdmin(false);
     setIsAuthenticated(false);
     setEmailInput("");
     setPasswordInput("");
     setNewPassword("");
     setConfirmPassword("");
     setParticipants([]);
+    setAdminsList([]);
     toast.info("Sessão encerrada.");
+  };
+
+  const loadAdmins = async (email: string, hash: string) => {
+    setLoadingAdmins(true);
+    try {
+      const list = await getAdmins({
+        data: { email, passwordHash: hash },
+      });
+      setAdminsList(list);
+    } catch (error) {
+      console.error(error);
+      toast.error("Erro ao carregar administradores.");
+    } finally {
+      setLoadingAdmins(false);
+    }
+  };
+
+  const handleCreateAdmin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newAdminEmail) {
+      toast.warning("Digite o e-mail do novo administrador.");
+      return;
+    }
+
+    setIsCreatingAdmin(true);
+    try {
+      const response = await createAdminFn({
+        data: {
+          email: adminEmail,
+          passwordHash: adminPasswordHash,
+          newAdminEmail,
+          isSuperAdmin: newAdminIsSuper,
+        },
+      });
+
+      if (response.success) {
+        toast.success("Administrador adicionado com sucesso! A senha padrão é 123456.");
+        setNewAdminEmail("");
+        setNewAdminIsSuper(false);
+        loadAdmins(adminEmail, adminPasswordHash);
+      } else {
+        toast.error(response.error || "Erro ao adicionar administrador.");
+      }
+    } catch (error) {
+      console.error(error);
+      toast.error("Erro ao conectar com o servidor.");
+    } finally {
+      setIsCreatingAdmin(false);
+    }
+  };
+
+  const handleDeleteAdmin = async (id: string, email: string) => {
+    if (!confirm(`Deseja realmente remover o administrador ${email}?`)) {
+      return;
+    }
+
+    try {
+      const response = await deleteAdminFn({
+        data: {
+          email: adminEmail,
+          passwordHash: adminPasswordHash,
+          adminIdToDelete: id,
+        },
+      });
+
+      if (response.success) {
+        toast.success("Administrador removido com sucesso!");
+        loadAdmins(adminEmail, adminPasswordHash);
+      } else {
+        toast.error(response.error || "Erro ao remover administrador.");
+      }
+    } catch (error) {
+      console.error(error);
+      toast.error("Erro ao conectar com o servidor.");
+    }
   };
 
   const handleDelete = async (id: string, name: string) => {
@@ -519,228 +615,414 @@ function AdminPage() {
 
       {/* Main Dashboard Container */}
       <div className="max-w-7xl mx-auto px-6 pt-8 space-y-6">
-        {/* Stats Row */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <Card className="border-border/40 bg-card/40 backdrop-blur-sm shadow-md">
-            <CardContent className="pt-6 flex items-center justify-between">
-              <div>
-                <p className="text-xs uppercase tracking-wider text-muted-foreground">
-                  Total de Inscritos
-                </p>
-                <h3 className="text-3xl font-display uppercase text-primary mt-1">
-                  {totalRegistrations}
-                </h3>
-              </div>
-              <div className="w-12 h-12 rounded-full bg-accent/10 flex items-center justify-center border border-accent/20">
-                <Users className="w-6 h-6 text-accent" />
-              </div>
-            </CardContent>
-          </Card>
+        {isSuperAdmin && (
+          <div className="flex border-b border-border/40 gap-4 mb-2">
+            <button
+              onClick={() => setActiveAdminTab("participants")}
+              className={`pb-3 text-sm font-sans uppercase tracking-wider font-semibold border-b-2 transition-colors ${
+                activeAdminTab === "participants"
+                  ? "border-accent text-accent"
+                  : "border-transparent text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              Participantes
+            </button>
+            <button
+              onClick={() => {
+                setActiveAdminTab("admins");
+                loadAdmins(adminEmail, adminPasswordHash);
+              }}
+              className={`pb-3 text-sm font-sans uppercase tracking-wider font-semibold border-b-2 transition-colors ${
+                activeAdminTab === "admins"
+                  ? "border-accent text-accent"
+                  : "border-transparent text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              Gerenciar Administradores
+            </button>
+          </div>
+        )}
 
-          <Card className="border-border/40 bg-card/40 backdrop-blur-sm shadow-md">
-            <CardContent className="pt-6 flex items-center justify-between">
-              <div>
-                <p className="text-xs uppercase tracking-wider text-muted-foreground">
-                  Congregações Ativas
-                </p>
-                <h3 className="text-3xl font-display uppercase text-primary mt-1">
-                  {uniqueCongregations}
-                </h3>
-              </div>
-              <div className="w-12 h-12 rounded-full bg-accent/10 flex items-center justify-center border border-accent/20">
-                <Church className="w-6 h-6 text-accent" />
-              </div>
-            </CardContent>
-          </Card>
+        {activeAdminTab === "participants" ? (
+          <>
+            {/* Stats Row */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <Card className="border-border/40 bg-card/40 backdrop-blur-sm shadow-md">
+                <CardContent className="pt-6 flex items-center justify-between">
+                  <div>
+                    <p className="text-xs uppercase tracking-wider text-muted-foreground">
+                      Total de Inscritos
+                    </p>
+                    <h3 className="text-3xl font-display uppercase text-primary mt-1">
+                      {totalRegistrations}
+                    </h3>
+                  </div>
+                  <div className="w-12 h-12 rounded-full bg-accent/10 flex items-center justify-center border border-accent/20">
+                    <Users className="w-6 h-6 text-accent" />
+                  </div>
+                </CardContent>
+              </Card>
 
-          <Card className="border-border/40 bg-card/40 backdrop-blur-sm shadow-md">
-            <CardContent className="pt-6 flex items-center justify-between">
-              <div>
-                <p className="text-xs uppercase tracking-wider text-muted-foreground">
-                  Regional Mais Ativa
-                </p>
-                <h3 className="text-2xl font-display uppercase text-primary mt-1.5 truncate max-w-[200px]">
-                  {topRegional}
-                </h3>
-                <span className="text-[10px] uppercase text-muted-foreground tracking-wider">
-                  {topRegionalCount} cadastro{topRegionalCount !== 1 ? "s" : ""}
-                </span>
-              </div>
-              <div className="w-12 h-12 rounded-full bg-accent/10 flex items-center justify-center border border-accent/20">
-                <TrendingUp className="w-6 h-6 text-accent" />
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+              <Card className="border-border/40 bg-card/40 backdrop-blur-sm shadow-md">
+                <CardContent className="pt-6 flex items-center justify-between">
+                  <div>
+                    <p className="text-xs uppercase tracking-wider text-muted-foreground">
+                      Congregações Ativas
+                    </p>
+                    <h3 className="text-3xl font-display uppercase text-primary mt-1">
+                      {uniqueCongregations}
+                    </h3>
+                  </div>
+                  <div className="w-12 h-12 rounded-full bg-accent/10 flex items-center justify-center border border-accent/20">
+                    <Church className="w-6 h-6 text-accent" />
+                  </div>
+                </CardContent>
+              </Card>
 
-        {/* Filters and Search */}
-        <Card className="border-border/40 bg-card/40 backdrop-blur-sm shadow-md">
-          <CardContent className="pt-6 space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              {/* Search Bar */}
-              <div className="relative md:col-span-2">
-                <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Buscar por nome, CPF, e-mail, congregação..."
-                  className="bg-secondary/20 border-border pl-10 text-foreground"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                />
-              </div>
+              <Card className="border-border/40 bg-card/40 backdrop-blur-sm shadow-md">
+                <CardContent className="pt-6 flex items-center justify-between">
+                  <div>
+                    <p className="text-xs uppercase tracking-wider text-muted-foreground">
+                      Regional Mais Ativa
+                    </p>
+                    <h3 className="text-2xl font-display uppercase text-primary mt-1.5 truncate max-w-[200px]">
+                      {topRegional}
+                    </h3>
+                    <span className="text-[10px] uppercase text-muted-foreground tracking-wider">
+                      {topRegionalCount} cadastro{topRegionalCount !== 1 ? "s" : ""}
+                    </span>
+                  </div>
+                  <div className="w-12 h-12 rounded-full bg-accent/10 flex items-center justify-center border border-accent/20">
+                    <TrendingUp className="w-6 h-6 text-accent" />
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
 
-              {/* Regional Filter */}
-              <div>
-                <Select
-                  value={filterRegional}
-                  onValueChange={(val) => {
-                    setFilterRegional(val);
-                    setFilterCongregation("all"); // Reset congregation
-                  }}
-                >
-                  <SelectTrigger className="bg-secondary/20 border-border text-foreground">
-                    <SelectValue placeholder="Filtrar por Regional" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-card border-border max-h-[250px]">
-                    <SelectItem value="all">Todas as Regionais</SelectItem>
-                    {Object.keys(REGIONALS_DATA).map((reg) => (
-                      <SelectItem key={reg} value={reg}>
-                        {reg}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Congregation Filter */}
-              <div>
-                <Select
-                  value={filterCongregation}
-                  onValueChange={setFilterCongregation}
-                  disabled={filterRegional === "all"}
-                >
-                  <SelectTrigger className="bg-secondary/20 border-border text-foreground disabled:opacity-50">
-                    <SelectValue
-                      placeholder={
-                        filterRegional !== "all"
-                          ? "Filtrar por Congregação"
-                          : "Selecione uma Regional"
-                      }
+            {/* Filters and Search */}
+            <Card className="border-border/40 bg-card/40 backdrop-blur-sm shadow-md">
+              <CardContent className="pt-6 space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  {/* Search Bar */}
+                  <div className="relative md:col-span-2">
+                    <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Buscar por nome, CPF, e-mail, congregação..."
+                      className="bg-secondary/20 border-border pl-10 text-foreground"
+                      value={search}
+                      onChange={(e) => setSearch(e.target.value)}
                     />
-                  </SelectTrigger>
-                  <SelectContent className="bg-card border-border max-h-[250px]">
-                    <SelectItem value="all">Todas as Congregações</SelectItem>
-                    {filterRegional !== "all" &&
-                      REGIONALS_DATA[filterRegional]?.map((cong) => (
-                        <SelectItem key={cong} value={cong}>
-                          {cong}
-                        </SelectItem>
-                      ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
+                  </div>
 
-            {/* Export and Info Button */}
-            <div className="flex flex-wrap gap-2 justify-between items-center border-t border-border/30 pt-4">
-              <span className="text-xs text-muted-foreground uppercase tracking-wider">
-                Mostrando {filteredParticipants.length} de {participants.length} participantes
-              </span>
-              <Button
-                onClick={exportToCSV}
-                className="surface-ember text-primary-foreground text-xs uppercase font-sans tracking-wider"
-              >
-                <Download className="w-3.5 h-3.5 mr-2" />
-                Exportar para CSV (Excel)
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+                  {/* Regional Filter */}
+                  <div>
+                    <Select
+                      value={filterRegional}
+                      onValueChange={(val) => {
+                        setFilterRegional(val);
+                        setFilterCongregation("all"); // Reset congregation
+                      }}
+                    >
+                      <SelectTrigger className="bg-secondary/20 border-border text-foreground">
+                        <SelectValue placeholder="Filtrar por Regional" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-card border-border max-h-[250px]">
+                        <SelectItem value="all">Todas as Regionais</SelectItem>
+                        {Object.keys(REGIONALS_DATA).map((reg) => (
+                          <SelectItem key={reg} value={reg}>
+                            {reg}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
 
-        {/* Table list */}
-        <Card className="border-border/40 bg-card/30 backdrop-blur-sm shadow-md overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse text-sm">
-              <thead>
-                <tr className="border-b border-border/50 bg-secondary/30 uppercase text-xs tracking-wider text-muted-foreground">
-                  <th className="py-4 px-6 font-semibold">Nº Sorteio</th>
-                  <th className="py-4 px-6 font-semibold">Nome</th>
-                  <th className="py-4 px-6 font-semibold">Contato</th>
-                  <th className="py-4 px-6 font-semibold">CPF / Nasc.</th>
-                  <th className="py-4 px-6 font-semibold">Localidade</th>
-                  <th className="py-4 px-6 font-semibold">Eclesiástico</th>
-                  <th className="py-4 px-6 font-semibold text-right">Ações</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border/20">
-                {filteredParticipants.length === 0 ? (
-                  <tr>
-                    <td colSpan={7} className="py-12 text-center text-muted-foreground">
-                      Nenhum participante encontrado.
-                    </td>
-                  </tr>
-                ) : (
-                  filteredParticipants.map((p) => {
-                    const displayBirth = p.birthDate.split("-").reverse().join("/");
+                  {/* Congregation Filter */}
+                  <div>
+                    <Select
+                      value={filterCongregation}
+                      onValueChange={setFilterCongregation}
+                      disabled={filterRegional === "all"}
+                    >
+                      <SelectTrigger className="bg-secondary/20 border-border text-foreground disabled:opacity-50">
+                        <SelectValue
+                          placeholder={
+                            filterRegional !== "all"
+                              ? "Filtrar por Congregação"
+                              : "Selecione uma Regional"
+                          }
+                        />
+                      </SelectTrigger>
+                      <SelectContent className="bg-card border-border max-h-[250px]">
+                        <SelectItem value="all">Todas as Congregações</SelectItem>
+                        {filterRegional !== "all" &&
+                          REGIONALS_DATA[filterRegional]?.map((cong) => (
+                            <SelectItem key={cong} value={cong}>
+                              {cong}
+                            </SelectItem>
+                          ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
 
-                    return (
-                      <tr key={p.id} className="hover:bg-secondary/15 transition-colors">
-                        <td className="py-4 px-6 font-mono font-semibold text-primary">
-                          {p.ticketNumber ? `#${p.ticketNumber}` : "-"}
-                        </td>
-                        <td className="py-4 px-6">
-                          <p className="font-medium text-foreground">{p.fullName}</p>
-                          <span className="text-xs text-muted-foreground tracking-wider block mt-0.5">
-                            Cadastro: {new Date(p.createdAt).toLocaleDateString("pt-BR")}
-                          </span>
-                        </td>
-                        <td className="py-4 px-6">
-                          <div className="space-y-0.5">
-                            <p className="text-foreground">{p.phone}</p>
-                            <p className="text-xs text-muted-foreground">{p.email}</p>
-                          </div>
-                        </td>
-                        <td className="py-4 px-6">
-                          <div className="space-y-0.5">
-                            <p className="text-foreground">{p.cpf}</p>
-                            <p className="text-xs text-muted-foreground">{displayBirth}</p>
-                          </div>
-                        </td>
-                        <td className="py-4 px-6">
-                          <div className="space-y-0.5 max-w-[200px]">
-                            <p className="truncate text-foreground" title={p.address.street}>
-                              {p.address.street}
-                            </p>
-                            <p className="text-xs text-muted-foreground truncate">
-                              {p.address.neighborhood}, {p.address.city} - {p.address.state}
-                            </p>
-                          </div>
-                        </td>
-                        <td className="py-4 px-6">
-                          <div className="space-y-0.5">
-                            <p className="text-foreground">{p.congregation}</p>
-                            <p className="text-xs text-accent uppercase tracking-wider">
-                              {p.regional}
-                            </p>
-                          </div>
-                        </td>
-                        <td className="py-4 px-6 text-right">
-                          <Button
-                            variant="destructive"
-                            size="icon"
-                            onClick={() => handleDelete(p.id, p.fullName)}
-                            className="h-8 w-8 bg-red-500/10 hover:bg-red-500/20 text-red-500 border border-red-500/20"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
+                {/* Export and Info Button */}
+                <div className="flex flex-wrap gap-2 justify-between items-center border-t border-border/30 pt-4">
+                  <span className="text-xs text-muted-foreground uppercase tracking-wider">
+                    Mostrando {filteredParticipants.length} de {participants.length} participantes
+                  </span>
+                  <Button
+                    onClick={exportToCSV}
+                    className="surface-ember text-primary-foreground text-xs uppercase font-sans tracking-wider"
+                  >
+                    <Download className="w-3.5 h-3.5 mr-2" />
+                    Exportar para CSV (Excel)
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Table list */}
+            <Card className="border-border/40 bg-card/30 backdrop-blur-sm shadow-md overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse text-sm">
+                  <thead>
+                    <tr className="border-b border-border/50 bg-secondary/30 uppercase text-xs tracking-wider text-muted-foreground">
+                      <th className="py-4 px-6 font-semibold">Nº Sorteio</th>
+                      <th className="py-4 px-6 font-semibold">Nome</th>
+                      <th className="py-4 px-6 font-semibold">Contato</th>
+                      <th className="py-4 px-6 font-semibold">CPF / Nasc.</th>
+                      <th className="py-4 px-6 font-semibold">Localidade</th>
+                      <th className="py-4 px-6 font-semibold">Eclesiástico</th>
+                      <th className="py-4 px-6 font-semibold text-right">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border/20">
+                    {filteredParticipants.length === 0 ? (
+                      <tr>
+                        <td colSpan={7} className="py-12 text-center text-muted-foreground">
+                          Nenhum participante encontrado.
                         </td>
                       </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
+                    ) : (
+                      filteredParticipants.map((p) => {
+                        const displayBirth = p.birthDate.split("-").reverse().join("/");
+
+                        return (
+                          <tr key={p.id} className="hover:bg-secondary/15 transition-colors">
+                            <td className="py-4 px-6 font-mono font-semibold text-primary">
+                              {p.ticketNumber ? `#${p.ticketNumber}` : "-"}
+                            </td>
+                            <td className="py-4 px-6">
+                              <p className="font-medium text-foreground">{p.fullName}</p>
+                              <span className="text-xs text-muted-foreground tracking-wider block mt-0.5">
+                                Cadastro: {new Date(p.createdAt).toLocaleDateString("pt-BR")}
+                              </span>
+                            </td>
+                            <td className="py-4 px-6">
+                              <div className="space-y-0.5">
+                                <p className="text-foreground">{p.phone}</p>
+                                <p className="text-xs text-muted-foreground">{p.email}</p>
+                              </div>
+                            </td>
+                            <td className="py-4 px-6">
+                              <div className="space-y-0.5">
+                                <p className="text-foreground">{p.cpf}</p>
+                                <p className="text-xs text-muted-foreground">{displayBirth}</p>
+                              </div>
+                            </td>
+                            <td className="py-4 px-6">
+                              <div className="space-y-0.5 max-w-[200px]">
+                                <p className="truncate text-foreground" title={p.address.street}>
+                                  {p.address.street}
+                                </p>
+                                <p className="text-xs text-muted-foreground truncate">
+                                  {p.address.neighborhood}, {p.address.city} - {p.address.state}
+                                </p>
+                              </div>
+                            </td>
+                            <td className="py-4 px-6">
+                              <div className="space-y-0.5">
+                                <p className="text-foreground">{p.congregation}</p>
+                                <p className="text-xs text-accent uppercase tracking-wider">
+                                  {p.regional}
+                                </p>
+                              </div>
+                            </td>
+                            <td className="py-4 px-6 text-right">
+                              <Button
+                                variant="destructive"
+                                size="icon"
+                                onClick={() => handleDelete(p.id, p.fullName)}
+                                className="h-8 w-8 bg-red-500/10 hover:bg-red-500/20 text-red-500 border border-red-500/20"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </Card>
+          </>
+        ) : (
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {/* Adicionar Novo Administrador Card */}
+              <Card className="border-border/40 bg-card/40 backdrop-blur-sm shadow-md md:col-span-1">
+                <CardHeader>
+                  <CardTitle className="text-lg font-display uppercase tracking-wider flex items-center gap-2">
+                    <UserPlus className="w-5 h-5 text-accent" />
+                    Novo Administrador
+                  </CardTitle>
+                  <CardDescription>
+                    Cadastre um novo usuário administrador. A senha provisória padrão será 123456.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <form onSubmit={handleCreateAdmin} className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="newAdminEmail">E-mail</Label>
+                      <Input
+                        id="newAdminEmail"
+                        type="email"
+                        placeholder="nome@email.com"
+                        className="bg-secondary/40 border-border text-foreground"
+                        value={newAdminEmail}
+                        onChange={(e) => setNewAdminEmail(e.target.value)}
+                        required
+                      />
+                    </div>
+                    <div className="flex items-center space-x-2 pt-2">
+                      <input
+                        type="checkbox"
+                        id="isSuper"
+                        className="rounded border-border bg-secondary/40 text-accent focus:ring-accent w-4 h-4"
+                        checked={newAdminIsSuper}
+                        onChange={(e) => setNewAdminIsSuper(e.target.checked)}
+                      />
+                      <Label htmlFor="isSuper" className="text-sm font-medium cursor-pointer">
+                        Super Administrador (Permite gerenciar gestores)
+                      </Label>
+                    </div>
+                    <Button
+                      type="submit"
+                      disabled={isCreatingAdmin}
+                      className="w-full surface-ember text-primary-foreground font-sans uppercase tracking-widest py-5 mt-2"
+                    >
+                      {isCreatingAdmin ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Adicionando...
+                        </>
+                      ) : (
+                        "Adicionar Administrador"
+                      )}
+                    </Button>
+                  </form>
+                </CardContent>
+              </Card>
+
+              {/* Lista de Administradores Card */}
+              <Card className="border-border/40 bg-card/40 backdrop-blur-sm shadow-md md:col-span-2 overflow-hidden">
+                <CardHeader className="flex flex-row items-center justify-between">
+                  <div>
+                    <CardTitle className="text-lg font-display uppercase tracking-wider flex items-center gap-2">
+                      <Shield className="w-5 h-5 text-accent" />
+                      Administradores Cadastrados
+                    </CardTitle>
+                    <CardDescription>
+                      Gerencie as contas administrativas da BURN Conference.
+                    </CardDescription>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => loadAdmins(adminEmail, adminPasswordHash)}
+                    disabled={loadingAdmins}
+                    className="border-border bg-secondary/30 hover:bg-secondary text-xs uppercase font-sans tracking-wider"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${loadingAdmins ? "animate-spin" : ""}`} />
+                    Atualizar
+                  </Button>
+                </CardHeader>
+                <div className="overflow-x-auto border-t border-border/40">
+                  {loadingAdmins ? (
+                    <div className="py-20 flex justify-center items-center text-muted-foreground gap-2">
+                      <Loader2 className="w-6 h-6 animate-spin text-accent" />
+                      Carregando administradores...
+                    </div>
+                  ) : (
+                    <table className="w-full text-left border-collapse text-sm">
+                      <thead>
+                        <tr className="border-b border-border/50 bg-secondary/30 uppercase text-xs tracking-wider text-muted-foreground">
+                          <th className="py-4 px-6 font-semibold">E-mail</th>
+                          <th className="py-4 px-6 font-semibold">Nível</th>
+                          <th className="py-4 px-6 font-semibold">Senha Provisória</th>
+                          <th className="py-4 px-6 font-semibold">Data Cadastro</th>
+                          <th className="py-4 px-6 font-semibold text-right">Ações</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-border/20">
+                        {adminsList.length === 0 ? (
+                          <tr>
+                            <td colSpan={5} className="py-12 text-center text-muted-foreground">
+                              Nenhum administrador cadastrado.
+                            </td>
+                          </tr>
+                        ) : (
+                          adminsList.map((adm) => (
+                            <tr key={adm.id} className="hover:bg-secondary/15 transition-colors">
+                              <td className="py-4 px-6 font-medium text-foreground">
+                                {adm.email}
+                              </td>
+                              <td className="py-4 px-6">
+                                <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                                  adm.isSuperAdmin
+                                    ? "bg-purple-500/10 text-purple-400 border border-purple-500/20"
+                                    : "bg-blue-500/10 text-blue-400 border border-blue-500/20"
+                                }`}>
+                                  {adm.isSuperAdmin ? "Super Admin" : "Admin"}
+                                </span>
+                              </td>
+                              <td className="py-4 px-6">
+                                <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                                  adm.isTempPassword
+                                    ? "bg-yellow-500/10 text-yellow-400 border border-yellow-500/20"
+                                    : "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                                }`}>
+                                  {adm.isTempPassword ? "Pendente Reset" : "Ok"}
+                                </span>
+                              </td>
+                              <td className="py-4 px-6 text-muted-foreground text-xs">
+                                {new Date(adm.createdAt).toLocaleDateString("pt-BR")}
+                              </td>
+                              <td className="py-4 px-6 text-right">
+                                <Button
+                                  variant="destructive"
+                                  size="icon"
+                                  disabled={adm.email.toLowerCase() === adminEmail.toLowerCase()}
+                                  onClick={() => handleDeleteAdmin(adm.id, adm.email)}
+                                  className="h-8 w-8 bg-red-500/10 hover:bg-red-500/20 text-red-500 border border-red-500/20 disabled:opacity-30 disabled:hover:bg-transparent"
+                                  title={adm.email.toLowerCase() === adminEmail.toLowerCase() ? "Você não pode se auto-excluir" : "Remover administrador"}
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </Button>
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+              </Card>
+            </div>
           </div>
-        </Card>
+        )}
       </div>
     </main>
   );

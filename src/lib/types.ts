@@ -23,3 +23,12 @@ export interface AdminConfig {
   passwordHash: string;
   isTempPassword: boolean;
 }
+
+export interface Admin {
+  id: string;
+  email: string;
+  passwordHash: string;
+  isTempPassword: boolean;
+  isSuperAdmin: boolean;
+  createdAt: string;
+}

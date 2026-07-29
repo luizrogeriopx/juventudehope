@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
-import type { Participant, AdminConfig } from "./types";
+import type { Participant, AdminConfig, Admin } from "./types";
 
 export function hashPassword(password: string): string {
   return createHash("sha256").update(password).digest("hex");
@@ -111,50 +111,129 @@ export async function deleteParticipant(id: string): Promise<boolean> {
   return (data ?? []).length > 0;
 }
 
-export async function readAdminConfig(): Promise<AdminConfig> {
+export async function getAdminByEmail(email: string): Promise<Admin | null> {
   const { data, error } = await supabaseAdmin
-    .from("admin_config")
+    .from("admins")
     .select("*")
-    .eq("id", 1)
+    .eq("email", email.toLowerCase())
     .maybeSingle();
 
   if (error) throw new Error(error.message);
+  if (!data) return null;
 
-  if (!data) {
-    const initial = {
-      id: 1,
-      email: "luizrogeriopx@gmail.com",
-      password_hash: hashPassword("123456"),
-      is_temp_password: true,
-    };
-    await supabaseAdmin.from("admin_config").insert(initial);
-    return {
-      email: initial.email,
-      passwordHash: initial.password_hash,
-      isTempPassword: initial.is_temp_password,
-    };
-  }
-
-  const row = data as { email: string; password_hash: string; is_temp_password: boolean };
   return {
-    email: row.email,
-    passwordHash: row.password_hash,
-    isTempPassword: row.is_temp_password,
+    id: data.id,
+    email: data.email,
+    passwordHash: data.password_hash,
+    isTempPassword: data.is_temp_password,
+    isSuperAdmin: data.is_super_admin,
+    createdAt: data.created_at,
   };
 }
 
-export async function writeAdminConfig(config: AdminConfig): Promise<void> {
+export async function updateAdminPassword(email: string, passwordHash: string, isTempPassword: boolean): Promise<void> {
   const { error } = await supabaseAdmin
-    .from("admin_config")
+    .from("admins")
     .update({
-      email: config.email,
-      password_hash: config.passwordHash,
-      is_temp_password: config.isTempPassword,
-      updated_at: new Date().toISOString(),
+      password_hash: passwordHash,
+      is_temp_password: isTempPassword,
     })
-    .eq("id", 1);
+    .eq("email", email.toLowerCase());
 
   if (error) throw new Error(error.message);
+}
+
+export async function listAdminsDb(): Promise<Omit<Admin, "passwordHash">[]> {
+  const { data, error } = await supabaseAdmin
+    .from("admins")
+    .select("id, email, is_temp_password, is_super_admin, created_at")
+    .order("created_at", { ascending: true });
+
+  if (error) throw new Error(error.message);
+  return (data ?? []).map((row: any) => ({
+    id: row.id,
+    email: row.email,
+    isTempPassword: row.is_temp_password,
+    isSuperAdmin: row.is_super_admin,
+    createdAt: row.created_at,
+  }));
+}
+
+export async function createAdminDb(email: string, isSuperAdmin: boolean): Promise<Admin> {
+  const normalizedEmail = email.toLowerCase().trim();
+  
+  // Check if admin already exists
+  const { data: existing } = await supabaseAdmin
+    .from("admins")
+    .select("id")
+    .eq("email", normalizedEmail)
+    .maybeSingle();
+
+  if (existing) {
+    throw new Error("E-mail de administrador já cadastrado.");
+  }
+
+  // Default password is "123456" for new admins (temp)
+  const defaultHash = hashPassword("123456");
+
+  const { data, error } = await supabaseAdmin
+    .from("admins")
+    .insert({
+      email: normalizedEmail,
+      password_hash: defaultHash,
+      is_temp_password: true,
+      is_super_admin: isSuperAdmin,
+    })
+    .select("*")
+    .single();
+
+  if (error) throw new Error(error.message);
+  
+  return {
+    id: data.id,
+    email: data.email,
+    passwordHash: data.password_hash,
+    isTempPassword: data.is_temp_password,
+    isSuperAdmin: data.is_super_admin,
+    createdAt: data.created_at,
+  };
+}
+
+export async function deleteAdminDb(id: string, currentAdminId: string): Promise<boolean> {
+  if (id === currentAdminId) {
+    throw new Error("Você não pode excluir o seu próprio usuário de administrador.");
+  }
+
+  const { data: adminToDelete } = await supabaseAdmin
+    .from("admins")
+    .select("is_super_admin")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (!adminToDelete) {
+    throw new Error("Administrador não encontrado.");
+  }
+
+  // If deleting a super admin, make sure there is at least one other super admin
+  if (adminToDelete.is_super_admin) {
+    const { count, error: countError } = await supabaseAdmin
+      .from("admins")
+      .select("id", { count: "exact", head: true })
+      .eq("is_super_admin", true);
+
+    if (countError) throw new Error(countError.message);
+    if ((count ?? 0) <= 1) {
+      throw new Error("Não é possível excluir o único Super Administrador ativo.");
+    }
+  }
+
+  const { error } = await supabaseAdmin
+    .from("admins")
+    .delete()
+    .eq("id", id);
+
+  if (error) throw new Error(error.message);
+  return true;
 }
 
 export async function getParticipantByCpfDb(cpf: string): Promise<Participant | null> {
