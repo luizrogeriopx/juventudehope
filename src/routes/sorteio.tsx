@@ -29,7 +29,7 @@ import {
 } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { REGIONALS_DATA } from "@/lib/regionals";
-import { registerParticipant } from "@/lib/server-functions";
+import { registerParticipant, getParticipantByCpf } from "@/lib/server-functions";
 import { Participant } from "@/lib/types";
 
 export const Route = createFileRoute("/sorteio")({
@@ -125,6 +125,51 @@ type FormValues = z.infer<typeof formSchema>;
 function SorteioPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [registeredUser, setRegisteredUser] = useState<Participant | null>(null);
+
+  const [activeTab, setActiveTab] = useState<"register" | "query">("register");
+  const [queryCpf, setQueryCpf] = useState("");
+  const [isQuerying, setIsQuerying] = useState(false);
+  const [queryResult, setQueryResult] = useState<any>(null);
+  const [queryError, setQueryError] = useState<string | null>(null);
+
+  const handleQuery = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!queryCpf) {
+      toast.warning("Por favor, digite o seu CPF.");
+      return;
+    }
+
+    const cleanCpf = queryCpf.replace(/\D/g, "");
+    if (cleanCpf.length !== 11) {
+      toast.error("CPF inválido. Deve conter 11 dígitos.");
+      return;
+    }
+
+    setIsQuerying(true);
+    setQueryError(null);
+    setQueryResult(null);
+    try {
+      const response = await getParticipantByCpf({ data: { cpf: queryCpf } });
+      if (response.success && response.participant) {
+        setQueryResult(response.participant);
+        toast.success("Inscrição localizada!");
+      } else {
+        setQueryError(response.error || "Inscrição não encontrada.");
+        toast.error(response.error || "Inscrição não encontrada.");
+      }
+    } catch (error) {
+      console.error(error);
+      setQueryError("Erro de conexão com o servidor.");
+      toast.error("Erro de conexão com o servidor. Tente novamente.");
+    } finally {
+      setIsQuerying(false);
+    }
+  };
+
+  const handleQueryCPFInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const formatted = formatCPF(e.target.value);
+    setQueryCpf(formatted);
+  };
 
   const {
     register,
@@ -276,301 +321,412 @@ function SorteioPage() {
       <div className="max-w-2xl mx-auto px-6 pt-10">
         <div className="text-center mb-8">
           <h1 className="text-4xl font-display uppercase tracking-wider mb-2 bg-gradient-to-r from-orange-400 via-red-500 to-yellow-500 bg-clip-text text-transparent">
-            Inscrição para Sorteio
+            {activeTab === "register" ? "Inscrição para Sorteio" : "Consultar Sorteio"}
           </h1>
           <p className="text-muted-foreground">
-            Insira suas informações abaixo para se cadastrar nos sorteios da BURN Conference.
+            {activeTab === "register"
+              ? "Insira suas informações abaixo para se cadastrar nos sorteios da BURN Conference."
+              : "Insira seu CPF para consultar seu número da sorte."}
           </p>
         </div>
 
         <Card className="border-border/50 bg-card/65 backdrop-blur-md shadow-2xl relative overflow-hidden">
           <div className="absolute top-0 left-0 w-full h-1 surface-ember" />
           <CardContent className="pt-6">
-            <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-              {/* Seção 1: Dados Pessoais */}
-              <div className="space-y-4">
-                <div className="flex items-center gap-2 border-b border-border/40 pb-2 mb-4">
-                  <User className="w-4 h-4 text-accent" />
-                  <h3 className="font-sans text-sm font-semibold uppercase tracking-wider text-accent">
-                    Dados Pessoais
-                  </h3>
-                </div>
+            <div className="flex border-b border-border/40 mb-6">
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveTab("register");
+                  setQueryError(null);
+                  setQueryResult(null);
+                }}
+                className={`flex-1 pb-3 text-sm font-sans uppercase tracking-wider font-semibold border-b-2 transition-colors ${
+                  activeTab === "register"
+                    ? "border-accent text-accent"
+                    : "border-transparent text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                Nova Inscrição
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab("query")}
+                className={`flex-1 pb-3 text-sm font-sans uppercase tracking-wider font-semibold border-b-2 transition-colors ${
+                  activeTab === "query"
+                    ? "border-accent text-accent"
+                    : "border-transparent text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                Consultar Inscrição
+              </button>
+            </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="fullName">Nome Completo</Label>
-                  <Input
-                    id="fullName"
-                    placeholder="Seu nome completo"
-                    className="bg-secondary/40 border-border text-foreground"
-                    {...register("fullName")}
-                  />
-                  {errors.fullName && (
-                    <span className="text-xs text-red-500 font-medium">{errors.fullName.message}</span>
-                  )}
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="birthDate">Data de Nascimento</Label>
-                    <div className="relative">
-                      <Input
-                        id="birthDate"
-                        type="date"
-                        className="bg-secondary/40 border-border text-foreground pr-10"
-                        {...register("birthDate")}
-                      />
-                    </div>
-                    {errors.birthDate && (
-                      <span className="text-xs text-red-500 font-medium">
-                        {errors.birthDate.message}
-                      </span>
-                    )}
+            {activeTab === "register" && (
+              <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+                {/* Seção 1: Dados Pessoais */}
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2 border-b border-border/40 pb-2 mb-4">
+                    <User className="w-4 h-4 text-accent" />
+                    <h3 className="font-sans text-sm font-semibold uppercase tracking-wider text-accent">
+                      Dados Pessoais
+                    </h3>
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="cpf">CPF</Label>
+                    <Label htmlFor="fullName">Nome Completo</Label>
                     <Input
-                      id="cpf"
+                      id="fullName"
+                      placeholder="Seu nome completo"
+                      className="bg-secondary/40 border-border text-foreground"
+                      {...register("fullName")}
+                    />
+                    {errors.fullName && (
+                      <span className="text-xs text-red-500 font-medium">{errors.fullName.message}</span>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="birthDate">Data de Nascimento</Label>
+                      <div className="relative">
+                        <Input
+                          id="birthDate"
+                          type="date"
+                          className="bg-secondary/40 border-border text-foreground pr-10"
+                          {...register("birthDate")}
+                        />
+                      </div>
+                      {errors.birthDate && (
+                        <span className="text-xs text-red-500 font-medium">
+                          {errors.birthDate.message}
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="cpf">CPF</Label>
+                      <Input
+                        id="cpf"
+                        placeholder="000.000.000-00"
+                        maxLength={14}
+                        className="bg-secondary/40 border-border text-foreground"
+                        {...register("cpf")}
+                        onChange={handleCPFInput}
+                      />
+                      {errors.cpf && (
+                        <span className="text-xs text-red-500 font-medium">{errors.cpf.message}</span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="email">E-mail</Label>
+                      <Input
+                        id="email"
+                        type="email"
+                        placeholder="exemplo@email.com"
+                        className="bg-secondary/40 border-border text-foreground"
+                        {...register("email")}
+                      />
+                      {errors.email && (
+                        <span className="text-xs text-red-500 font-medium">{errors.email.message}</span>
+                      )}
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="phone">Telefone / WhatsApp</Label>
+                      <Input
+                        id="phone"
+                        placeholder="(62) 99999-9999"
+                        maxLength={15}
+                        className="bg-secondary/40 border-border text-foreground"
+                        {...register("phone")}
+                        onChange={handlePhoneInput}
+                      />
+                      {errors.phone && (
+                        <span className="text-xs text-red-500 font-medium">{errors.phone.message}</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Seção 2: Endereço */}
+                <div className="space-y-4 pt-2">
+                  <div className="flex items-center gap-2 border-b border-border/40 pb-2 mb-4">
+                    <MapPin className="w-4 h-4 text-accent" />
+                    <h3 className="font-sans text-sm font-semibold uppercase tracking-wider text-accent">
+                      Endereço
+                    </h3>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="md:col-span-2 space-y-2">
+                      <Label htmlFor="address.street">Logradouro (Rua, Av.)</Label>
+                      <Input
+                        id="address.street"
+                        placeholder="Rua, Av, Quadra..."
+                        className="bg-secondary/40 border-border text-foreground"
+                        {...register("address.street")}
+                      />
+                      {errors.address?.street && (
+                        <span className="text-xs text-red-500 font-medium">
+                          {errors.address.street.message}
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="address.complement">Complemento</Label>
+                      <Input
+                        id="address.complement"
+                        placeholder="Apto, Sala, Qd..."
+                        className="bg-secondary/40 border-border text-foreground"
+                        {...register("address.complement")}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="address.neighborhood">Bairro</Label>
+                      <Input
+                        id="address.neighborhood"
+                        placeholder="Bairro"
+                        className="bg-secondary/40 border-border text-foreground"
+                        {...register("address.neighborhood")}
+                      />
+                      {errors.address?.neighborhood && (
+                        <span className="text-xs text-red-500 font-medium">
+                          {errors.address.neighborhood.message}
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="address.city">Cidade</Label>
+                      <Input
+                        id="address.city"
+                        placeholder="Cidade"
+                        className="bg-secondary/40 border-border text-foreground"
+                        {...register("address.city")}
+                      />
+                      {errors.address?.city && (
+                        <span className="text-xs text-red-500 font-medium">
+                          {errors.address.city.message}
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="address.state">Estado</Label>
+                      <Controller
+                        name="address.state"
+                        control={control}
+                        render={({ field }) => (
+                          <Select onValueChange={field.onChange} value={field.value}>
+                            <SelectTrigger className="bg-secondary/40 border-border text-foreground">
+                              <SelectValue placeholder="UF" />
+                            </SelectTrigger>
+                            <SelectContent className="bg-card border-border">
+                              {statesList.map((uf) => (
+                                <SelectItem key={uf} value={uf}>
+                                  {uf}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        )}
+                      />
+                      {errors.address?.state && (
+                        <span className="text-xs text-red-500 font-medium">
+                          {errors.address.state.message}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Seção 3: Eclesiástica */}
+                <div className="space-y-4 pt-2">
+                  <div className="flex items-center gap-2 border-b border-border/40 pb-2 mb-4">
+                    <Church className="w-4 h-4 text-accent" />
+                    <h3 className="font-sans text-sm font-semibold uppercase tracking-wider text-accent">
+                      Regional e Congregação
+                    </h3>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="regional">Regional</Label>
+                      <Controller
+                        name="regional"
+                        control={control}
+                        render={({ field }) => (
+                          <Select
+                            onValueChange={(val) => {
+                              field.onChange(val);
+                              // Clear congregation if regional changes
+                              setValue("congregation", "", { shouldValidate: false });
+                            }}
+                            value={field.value}
+                          >
+                            <SelectTrigger className="bg-secondary/40 border-border text-foreground">
+                              <SelectValue placeholder="Selecione a Regional" />
+                            </SelectTrigger>
+                            <SelectContent className="bg-card border-border max-h-[250px]">
+                              {Object.keys(REGIONALS_DATA).map((reg) => (
+                                <SelectItem key={reg} value={reg}>
+                                  {reg}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        )}
+                      />
+                      {errors.regional && (
+                        <span className="text-xs text-red-500 font-medium">{errors.regional.message}</span>
+                      )}
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="congregation">Congregação</Label>
+                      <Controller
+                        name="congregation"
+                        control={control}
+                        render={({ field }) => (
+                          <Select
+                            onValueChange={field.onChange}
+                            value={field.value}
+                            disabled={!selectedRegional}
+                          >
+                            <SelectTrigger className="bg-secondary/40 border-border text-foreground disabled:opacity-50">
+                              <SelectValue
+                                placeholder={
+                                  selectedRegional
+                                    ? "Selecione a Congregação"
+                                    : "Selecione a Regional primeiro"
+                                }
+                              />
+                            </SelectTrigger>
+                            <SelectContent className="bg-card border-border">
+                              {selectedRegional &&
+                                REGIONALS_DATA[selectedRegional]?.map((cong) => (
+                                  <SelectItem key={cong} value={cong}>
+                                    {cong}
+                                  </SelectItem>
+                                ))}
+                            </SelectContent>
+                          </Select>
+                        )}
+                      />
+                      {errors.congregation && (
+                        <span className="text-xs text-red-500 font-medium">
+                          {errors.congregation.message}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Botão de Envio */}
+                <div className="pt-4">
+                  <Button
+                    type="submit"
+                    disabled={isSubmitting}
+                    className="w-full surface-ember text-primary-foreground font-sans font-bold py-6 text-base tracking-widest uppercase hover:-translate-y-0.5 transition-transform"
+                  >
+                    {isSubmitting ? (
+                      <>
+                        <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                        Processando...
+                      </>
+                    ) : (
+                      "Cadastrar no Sorteio"
+                    )}
+                  </Button>
+                </div>
+              </form>
+            )}
+
+            {activeTab === "query" && (
+              <form onSubmit={handleQuery} className="space-y-6">
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2 border-b border-border/40 pb-2 mb-4">
+                    <User className="w-4 h-4 text-accent" />
+                    <h3 className="font-sans text-sm font-semibold uppercase tracking-wider text-accent">
+                      Consulte seus dados
+                    </h3>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="queryCpf">CPF do Participante</Label>
+                    <Input
+                      id="queryCpf"
                       placeholder="000.000.000-00"
                       maxLength={14}
                       className="bg-secondary/40 border-border text-foreground"
-                      {...register("cpf")}
-                      onChange={handleCPFInput}
-                    />
-                    {errors.cpf && (
-                      <span className="text-xs text-red-500 font-medium">{errors.cpf.message}</span>
-                    )}
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="email">E-mail</Label>
-                    <Input
-                      id="email"
-                      type="email"
-                      placeholder="exemplo@email.com"
-                      className="bg-secondary/40 border-border text-foreground"
-                      {...register("email")}
-                    />
-                    {errors.email && (
-                      <span className="text-xs text-red-500 font-medium">{errors.email.message}</span>
-                    )}
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="phone">Telefone / WhatsApp</Label>
-                    <Input
-                      id="phone"
-                      placeholder="(62) 99999-9999"
-                      maxLength={15}
-                      className="bg-secondary/40 border-border text-foreground"
-                      {...register("phone")}
-                      onChange={handlePhoneInput}
-                    />
-                    {errors.phone && (
-                      <span className="text-xs text-red-500 font-medium">{errors.phone.message}</span>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* Seção 2: Endereço */}
-              <div className="space-y-4 pt-2">
-                <div className="flex items-center gap-2 border-b border-border/40 pb-2 mb-4">
-                  <MapPin className="w-4 h-4 text-accent" />
-                  <h3 className="font-sans text-sm font-semibold uppercase tracking-wider text-accent">
-                    Endereço
-                  </h3>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="md:col-span-2 space-y-2">
-                    <Label htmlFor="address.street">Logradouro (Rua, Av.)</Label>
-                    <Input
-                      id="address.street"
-                      placeholder="Rua, Av, Quadra..."
-                      className="bg-secondary/40 border-border text-foreground"
-                      {...register("address.street")}
-                    />
-                    {errors.address?.street && (
-                      <span className="text-xs text-red-500 font-medium">
-                        {errors.address.street.message}
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="address.complement">Complemento</Label>
-                    <Input
-                      id="address.complement"
-                      placeholder="Apto, Sala, Qd..."
-                      className="bg-secondary/40 border-border text-foreground"
-                      {...register("address.complement")}
+                      value={queryCpf}
+                      onChange={handleQueryCPFInput}
+                      required
                     />
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="address.neighborhood">Bairro</Label>
-                    <Input
-                      id="address.neighborhood"
-                      placeholder="Bairro"
-                      className="bg-secondary/40 border-border text-foreground"
-                      {...register("address.neighborhood")}
-                    />
-                    {errors.address?.neighborhood && (
-                      <span className="text-xs text-red-500 font-medium">
-                        {errors.address.neighborhood.message}
-                      </span>
+                <div className="pt-2">
+                  <Button
+                    type="submit"
+                    disabled={isQuerying}
+                    className="w-full surface-ember text-primary-foreground font-sans font-bold py-6 text-base tracking-widest uppercase hover:-translate-y-0.5 transition-transform"
+                  >
+                    {isQuerying ? (
+                      <>
+                        <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                        Buscando...
+                      </>
+                    ) : (
+                      "Consultar Inscrição"
                     )}
-                  </div>
+                  </Button>
+                </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="address.city">Cidade</Label>
-                    <Input
-                      id="address.city"
-                      placeholder="Cidade"
-                      className="bg-secondary/40 border-border text-foreground"
-                      {...register("address.city")}
-                    />
-                    {errors.address?.city && (
-                      <span className="text-xs text-red-500 font-medium">
-                        {errors.address.city.message}
-                      </span>
-                    )}
+                {queryError && (
+                  <div className="rounded-lg bg-red-500/10 border border-red-500/20 p-4 text-sm text-red-400 text-center animate-in fade-in duration-200">
+                    {queryError}
                   </div>
+                )}
 
-                  <div className="space-y-2">
-                    <Label htmlFor="address.state">Estado</Label>
-                    <Controller
-                      name="address.state"
-                      control={control}
-                      render={({ field }) => (
-                        <Select onValueChange={field.onChange} value={field.value}>
-                          <SelectTrigger className="bg-secondary/40 border-border text-foreground">
-                            <SelectValue placeholder="UF" />
-                          </SelectTrigger>
-                          <SelectContent className="bg-card border-border">
-                            {statesList.map((uf) => (
-                              <SelectItem key={uf} value={uf}>
-                                {uf}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                {queryResult && (
+                  <div className="rounded-lg bg-emerald-500/10 border border-emerald-500/30 p-5 space-y-4 animate-in fade-in zoom-in duration-200">
+                    <div className="flex justify-between items-start border-b border-border/40 pb-3 mb-1">
+                      <div>
+                        <p className="text-xs uppercase tracking-wider text-muted-foreground">Participante</p>
+                        <p className="text-lg font-medium text-foreground">{queryResult.fullName}</p>
+                      </div>
+                      {queryResult.ticketNumber && (
+                        <div className="text-right">
+                          <p className="text-xs uppercase tracking-wider text-accent font-semibold">Número da Sorte</p>
+                          <p className="text-3xl font-display font-bold text-primary">#{queryResult.ticketNumber}</p>
+                        </div>
                       )}
-                    />
-                    {errors.address?.state && (
-                      <span className="text-xs text-red-500 font-medium">
-                        {errors.address.state.message}
-                      </span>
-                    )}
+                    </div>
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <p className="text-xs uppercase tracking-wider text-muted-foreground">CPF</p>
+                        <p className="font-medium text-foreground">{queryResult.cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4")}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs uppercase tracking-wider text-muted-foreground">Congregação</p>
+                        <p className="font-medium text-foreground">
+                          {queryResult.congregation} ({queryResult.regional})
+                        </p>
+                      </div>
+                    </div>
                   </div>
-                </div>
-              </div>
-
-              {/* Seção 3: Eclesiástica */}
-              <div className="space-y-4 pt-2">
-                <div className="flex items-center gap-2 border-b border-border/40 pb-2 mb-4">
-                  <Church className="w-4 h-4 text-accent" />
-                  <h3 className="font-sans text-sm font-semibold uppercase tracking-wider text-accent">
-                    Regional e Congregação
-                  </h3>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="regional">Regional</Label>
-                    <Controller
-                      name="regional"
-                      control={control}
-                      render={({ field }) => (
-                        <Select
-                          onValueChange={(val) => {
-                            field.onChange(val);
-                            // Clear congregation if regional changes
-                            setValue("congregation", "", { shouldValidate: false });
-                          }}
-                          value={field.value}
-                        >
-                          <SelectTrigger className="bg-secondary/40 border-border text-foreground">
-                            <SelectValue placeholder="Selecione a Regional" />
-                          </SelectTrigger>
-                          <SelectContent className="bg-card border-border max-h-[250px]">
-                            {Object.keys(REGIONALS_DATA).map((reg) => (
-                              <SelectItem key={reg} value={reg}>
-                                {reg}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      )}
-                    />
-                    {errors.regional && (
-                      <span className="text-xs text-red-500 font-medium">{errors.regional.message}</span>
-                    )}
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="congregation">Congregação</Label>
-                    <Controller
-                      name="congregation"
-                      control={control}
-                      render={({ field }) => (
-                        <Select
-                          onValueChange={field.onChange}
-                          value={field.value}
-                          disabled={!selectedRegional}
-                        >
-                          <SelectTrigger className="bg-secondary/40 border-border text-foreground disabled:opacity-50">
-                            <SelectValue
-                              placeholder={
-                                selectedRegional
-                                  ? "Selecione a Congregação"
-                                  : "Selecione a Regional primeiro"
-                              }
-                            />
-                          </SelectTrigger>
-                          <SelectContent className="bg-card border-border">
-                            {selectedRegional &&
-                              REGIONALS_DATA[selectedRegional]?.map((cong) => (
-                                <SelectItem key={cong} value={cong}>
-                                  {cong}
-                                </SelectItem>
-                              ))}
-                          </SelectContent>
-                        </Select>
-                      )}
-                    />
-                    {errors.congregation && (
-                      <span className="text-xs text-red-500 font-medium">
-                        {errors.congregation.message}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* Botão de Envio */}
-              <div className="pt-4">
-                <Button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="w-full surface-ember text-primary-foreground font-sans font-bold py-6 text-base tracking-widest uppercase hover:-translate-y-0.5 transition-transform"
-                >
-                  {isSubmitting ? (
-                    <>
-                      <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                      Processando...
-                    </>
-                  ) : (
-                    "Cadastrar no Sorteio"
-                  )}
-                </Button>
-              </div>
-            </form>
+                )}
+              </form>
+            )}
           </CardContent>
         </Card>
       </div>

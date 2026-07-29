@@ -93,3 +93,28 @@ export const deleteParticipantFn = createServerFn({ method: "POST" })
     const success = await deleteParticipant(id);
     return { success };
   });
+
+export const getParticipantByCpf = createServerFn({ method: "POST" })
+  .validator((payload: { cpf: string }) => payload)
+  .handler(async ({ data: { cpf } }) => {
+    const { getParticipantByCpfDb } = await import("./db.server");
+    try {
+      const normalizedCpf = cpf.replace(/\D/g, "");
+      const participant = await getParticipantByCpfDb(normalizedCpf);
+      if (!participant) {
+        return { success: false, error: "Participante não encontrado com este CPF." };
+      }
+      return {
+        success: true,
+        participant: {
+          fullName: participant.fullName,
+          ticketNumber: participant.ticketNumber,
+          congregation: participant.congregation,
+          regional: participant.regional,
+          cpf: participant.cpf,
+        },
+      };
+    } catch (error: any) {
+      return { success: false, error: error.message || "Erro desconhecido." };
+    }
+  });

@@ -156,3 +156,15 @@ export async function writeAdminConfig(config: AdminConfig): Promise<void> {
 
   if (error) throw new Error(error.message);
 }
+
+export async function getParticipantByCpfDb(cpf: string): Promise<Participant | null> {
+  const { data, error } = await supabaseAdmin
+    .from("participants")
+    .select("*")
+    .eq("cpf", cpf)
+    .maybeSingle();
+
+  if (error) throw new Error(error.message);
+  if (!data) return null;
+  return toParticipant(data as ParticipantRow);
+}
