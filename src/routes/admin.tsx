@@ -248,10 +248,11 @@ function AdminPage() {
     // Build CSV with UTF-8 BOM so Excel opens it with accents correctly
     let csvContent = "\uFEFF";
     csvContent +=
-      "Nome Completo;Data Nascimento;CPF;E-mail;Telefone;Logradouro;Complemento;Bairro;Cidade;Estado;Regional;Congregação;Data Cadastro\n";
+      "Nº Sorteio;Nome Completo;Data Nascimento;CPF;E-mail;Telefone;Logradouro;Complemento;Bairro;Cidade;Estado;Regional;Congregação;Data Cadastro\n";
 
     filteredParticipants.forEach((p) => {
       const row = [
+        p.ticketNumber ? String(p.ticketNumber) : "",
         p.fullName,
         p.birthDate,
         p.cpf,
@@ -661,6 +662,7 @@ function AdminPage() {
             <table className="w-full text-left border-collapse text-sm">
               <thead>
                 <tr className="border-b border-border/50 bg-secondary/30 uppercase text-xs tracking-wider text-muted-foreground">
+                  <th className="py-4 px-6 font-semibold">Nº Sorteio</th>
                   <th className="py-4 px-6 font-semibold">Nome</th>
                   <th className="py-4 px-6 font-semibold">Contato</th>
                   <th className="py-4 px-6 font-semibold">CPF / Nasc.</th>
@@ -672,7 +674,7 @@ function AdminPage() {
               <tbody className="divide-y divide-border/20">
                 {filteredParticipants.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="py-12 text-center text-muted-foreground">
+                    <td colSpan={7} className="py-12 text-center text-muted-foreground">
                       Nenhum participante encontrado.
                     </td>
                   </tr>
@@ -682,6 +684,9 @@ function AdminPage() {
 
                     return (
                       <tr key={p.id} className="hover:bg-secondary/15 transition-colors">
+                        <td className="py-4 px-6 font-mono font-semibold text-primary">
+                          {p.ticketNumber ? `#${p.ticketNumber}` : "-"}
+                        </td>
                         <td className="py-4 px-6">
                           <p className="font-medium text-foreground">{p.fullName}</p>
                           <span className="text-xs text-muted-foreground tracking-wider block mt-0.5">

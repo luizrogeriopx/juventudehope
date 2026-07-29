@@ -30,6 +30,7 @@ import {
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { REGIONALS_DATA } from "@/lib/regionals";
 import { registerParticipant } from "@/lib/server-functions";
+import { Participant } from "@/lib/types";
 
 export const Route = createFileRoute("/sorteio")({
   head: () => ({
@@ -123,7 +124,7 @@ type FormValues = z.infer<typeof formSchema>;
 
 function SorteioPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [registeredUser, setRegisteredUser] = useState<FormValues | null>(null);
+  const [registeredUser, setRegisteredUser] = useState<Participant | null>(null);
 
   const {
     register,
@@ -159,9 +160,9 @@ function SorteioPage() {
     try {
       const response = await registerParticipant({ data: values });
 
-      if (response.success) {
+      if (response.success && response.participant) {
         toast.success("Inscrição realizada com sucesso!");
-        setRegisteredUser(values);
+        setRegisteredUser(response.participant);
       } else {
         toast.error(response.error || "Erro ao realizar inscrição.");
       }
@@ -201,9 +202,17 @@ function SorteioPage() {
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="rounded-lg bg-secondary/30 border border-border p-5 space-y-4">
-              <div>
-                <p className="text-xs uppercase tracking-wider text-muted-foreground">Participante</p>
-                <p className="text-lg font-medium text-foreground">{registeredUser.fullName}</p>
+              <div className="flex justify-between items-start border-b border-border/40 pb-3 mb-1">
+                <div>
+                  <p className="text-xs uppercase tracking-wider text-muted-foreground">Participante</p>
+                  <p className="text-lg font-medium text-foreground">{registeredUser.fullName}</p>
+                </div>
+                {registeredUser.ticketNumber && (
+                  <div className="text-right">
+                    <p className="text-xs uppercase tracking-wider text-accent font-semibold">Número da Sorte</p>
+                    <p className="text-2xl font-display font-bold text-primary">#{registeredUser.ticketNumber}</p>
+                  </div>
+                )}
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>

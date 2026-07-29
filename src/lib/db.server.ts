@@ -21,6 +21,7 @@ type ParticipantRow = {
   regional: string;
   congregation: string;
   created_at: string;
+  ticket_number?: number;
 };
 
 function toParticipant(row: ParticipantRow): Participant {
@@ -41,6 +42,7 @@ function toParticipant(row: ParticipantRow): Participant {
     regional: row.regional,
     congregation: row.congregation,
     createdAt: row.created_at,
+    ticketNumber: row.ticket_number,
   };
 }
 

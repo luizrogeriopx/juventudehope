@@ -15,6 +15,7 @@ export interface Participant {
   regional: string;
   congregation: string;
   createdAt: string;
+  ticketNumber?: number;
 }
 
 export interface AdminConfig {
