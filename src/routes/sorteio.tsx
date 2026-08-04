@@ -35,7 +35,7 @@ import { Participant } from "@/lib/types";
 export const Route = createFileRoute("/sorteio")({
   head: () => ({
     meta: [
-      { title: "Sorteio | BURN Conference 2025" },
+      { title: "Sorteio | BURN Conference 2026" },
       {
         name: "description",
         content: "Faça sua inscrição para participar do sorteio da BURN Conference.",

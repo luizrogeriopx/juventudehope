@@ -6,13 +6,13 @@ import poster from "@/assets/burn-post.jpg.asset.json";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "BURN Conference 2025 | Juventude Hope - Igreja Esperança" },
+      { title: "BURN Conference 2026 | Juventude Hope - Igreja Esperança" },
       {
         name: "description",
         content:
           "BURN Conference: 15 e 16 de agosto, sábado às 14h e domingo às 17h, na Igreja Esperança em Aparecida de Goiânia. Recalculando a Rota.",
       },
-      { property: "og:title", content: "BURN Conference 2025 | Juventude Hope" },
+      { property: "og:title", content: "BURN Conference 2026 | Juventude Hope" },
       {
         property: "og:description",
         content:

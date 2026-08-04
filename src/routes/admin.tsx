@@ -46,7 +46,7 @@ import { REGIONALS_DATA } from "@/lib/regionals";
 export const Route = createFileRoute("/admin")({
   head: () => ({
     meta: [
-      { title: "Painel Admin | BURN Conference 2025" },
+      { title: "Painel Admin | BURN Conference 2026" },
       { name: "description", content: "Administração de participantes do sorteio." },
     ],
   }),
@@ -585,7 +585,7 @@ export function AdminPage({ defaultTab = "participants" }: { defaultTab?: "parti
                 Painel Admin
               </h1>
               <span className="text-xs text-muted-foreground uppercase tracking-widest">
-                BURN Conference 2025 · {adminEmail}
+                BURN Conference 2026 · {adminEmail}
               </span>
             </div>
           </div>

@@ -4,7 +4,7 @@ import { AdminPage } from "./admin";
 export const Route = createFileRoute("/super-admin")({
   head: () => ({
     meta: [
-      { title: "Painel Super Admin | BURN Conference 2025" },
+      { title: "Painel Super Admin | BURN Conference 2026" },
       { name: "description", content: "Administração de participantes do sorteio e gestores." },
     ],
   }),
