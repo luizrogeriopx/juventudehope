@@ -19,6 +19,8 @@ import {
   ShieldAlert,
   Shield,
   UserPlus,
+  Trophy,
+  Gift,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -40,6 +42,11 @@ import {
   getAdmins,
   createAdminFn,
   deleteAdminFn,
+  getPrizes,
+  createPrizeFn,
+  deletePrizeFn,
+  getWinners,
+  resetWinnersFn,
 } from "@/lib/server-functions";
 import { REGIONALS_DATA } from "@/lib/regionals";
 
@@ -53,7 +60,9 @@ export const Route = createFileRoute("/admin")({
   component: AdminPage,
 });
 
-export function AdminPage({ defaultTab = "participants" }: { defaultTab?: "participants" | "admins" }) {
+type AdminTab = "participants" | "prizes" | "admins";
+
+export function AdminPage({ defaultTab = "participants" }: { defaultTab?: AdminTab }) {
   // Authentication states
   const [emailInput, setEmailInput] = useState("");
   const [passwordInput, setPasswordInput] = useState("");
@@ -79,7 +88,16 @@ export function AdminPage({ defaultTab = "participants" }: { defaultTab?: "parti
   const [filterCongregation, setFilterCongregation] = useState<string>("all");
 
   // Super admin / admin tab state
-  const [activeAdminTab, setActiveAdminTab] = useState<"participants" | "admins">(defaultTab);
+  const [activeAdminTab, setActiveAdminTab] = useState<AdminTab>(defaultTab);
+
+  // Prizes & winners state
+  const [prizes, setPrizes] = useState<any[]>([]);
+  const [winnersList, setWinnersList] = useState<any[]>([]);
+  const [loadingPrizes, setLoadingPrizes] = useState(false);
+  const [newPrizeName, setNewPrizeName] = useState("");
+  const [newPrizePosition, setNewPrizePosition] = useState(1);
+  const [isCreatingPrize, setIsCreatingPrize] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
   const [adminsList, setAdminsList] = useState<any[]>([]);
   const [loadingAdmins, setLoadingAdmins] = useState(false);
   const [newAdminEmail, setNewAdminEmail] = useState("");
@@ -131,6 +149,80 @@ export function AdminPage({ defaultTab = "participants" }: { defaultTab?: "parti
       loadData(adminEmail, adminPasswordHash);
     }
   }, [isAuthenticated, adminEmail, adminPasswordHash]);
+
+  const loadPrizes = async () => {
+    setLoadingPrizes(true);
+    try {
+      const [prizeList, winnerList] = await Promise.all([getPrizes(), getWinners()]);
+      setPrizes(prizeList);
+      setWinnersList(winnerList);
+      setNewPrizePosition((prizeList as any[]).length + 1);
+    } catch (error) {
+      console.error(error);
+      toast.error("Erro ao carregar prêmios.");
+    } finally {
+      setLoadingPrizes(false);
+    }
+  };
+
+  const handleCreatePrize = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newPrizeName.trim()) {
+      toast.warning("Informe o nome do prêmio.");
+      return;
+    }
+    setIsCreatingPrize(true);
+    try {
+      const result = await createPrizeFn({
+        data: {
+          email: adminEmail,
+          passwordHash: adminPasswordHash,
+          name: newPrizeName.trim(),
+          position: newPrizePosition,
+        },
+      });
+      if (result.success) {
+        toast.success("Prêmio cadastrado!");
+        setNewPrizeName("");
+        loadPrizes();
+      } else {
+        toast.error(result.error || "Erro ao cadastrar prêmio.");
+      }
+    } finally {
+      setIsCreatingPrize(false);
+    }
+  };
+
+  const handleDeletePrize = async (id: string, name: string) => {
+    if (!confirm(`Excluir o prêmio "${name}"? Os ganhadores desse prêmio também serão removidos.`)) return;
+    const result = await deletePrizeFn({
+      data: { email: adminEmail, passwordHash: adminPasswordHash, id },
+    });
+    if (result.success) {
+      toast.success("Prêmio removido.");
+      loadPrizes();
+    } else {
+      toast.error(result.error || "Erro ao remover prêmio.");
+    }
+  };
+
+  const handleResetWinners = async () => {
+    if (!confirm("Resetar todos os ganhadores? Todos voltarão a concorrer nos próximos sorteios.")) return;
+    setIsResetting(true);
+    try {
+      const result = await resetWinnersFn({
+        data: { email: adminEmail, passwordHash: adminPasswordHash },
+      });
+      if (result.success) {
+        toast.success(`Ganhadores resetados (${result.removed ?? 0} removidos).`);
+        loadPrizes();
+      } else {
+        toast.error(result.error || "Erro ao resetar ganhadores.");
+      }
+    } finally {
+      setIsResetting(false);
+    }
+  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -615,8 +707,8 @@ export function AdminPage({ defaultTab = "participants" }: { defaultTab?: "parti
 
       {/* Main Dashboard Container */}
       <div className="max-w-7xl mx-auto px-6 pt-8 space-y-6">
-        {isSuperAdmin && (
-          <div className="flex border-b border-border/40 gap-4 mb-2">
+        {(
+          <div className="flex border-b border-border/40 gap-4 mb-2 flex-wrap">
             <button
               onClick={() => setActiveAdminTab("participants")}
               className={`pb-3 text-sm font-sans uppercase tracking-wider font-semibold border-b-2 transition-colors ${
@@ -627,6 +719,20 @@ export function AdminPage({ defaultTab = "participants" }: { defaultTab?: "parti
             >
               Participantes
             </button>
+            <button
+              onClick={() => {
+                setActiveAdminTab("prizes");
+                loadPrizes();
+              }}
+              className={`pb-3 text-sm font-sans uppercase tracking-wider font-semibold border-b-2 transition-colors ${
+                activeAdminTab === "prizes"
+                  ? "border-accent text-accent"
+                  : "border-transparent text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              Prêmios & Ganhadores
+            </button>
+            {isSuperAdmin && (
             <button
               onClick={() => {
                 setActiveAdminTab("admins");
@@ -640,10 +746,28 @@ export function AdminPage({ defaultTab = "participants" }: { defaultTab?: "parti
             >
               Gerenciar Administradores
             </button>
+            )}
           </div>
         )}
 
-        {activeAdminTab === "participants" ? (
+        {activeAdminTab === "prizes" ? (
+          <PrizesSection
+            prizes={prizes}
+            winners={winnersList}
+            loading={loadingPrizes}
+            isSuperAdmin={isSuperAdmin}
+            newPrizeName={newPrizeName}
+            setNewPrizeName={setNewPrizeName}
+            newPrizePosition={newPrizePosition}
+            setNewPrizePosition={setNewPrizePosition}
+            isCreatingPrize={isCreatingPrize}
+            isResetting={isResetting}
+            onCreate={handleCreatePrize}
+            onDelete={handleDeletePrize}
+            onReset={handleResetWinners}
+            onRefresh={loadPrizes}
+          />
+        ) : activeAdminTab === "participants" ? (
           <>
             {/* Stats Row */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -1025,5 +1149,183 @@ export function AdminPage({ defaultTab = "participants" }: { defaultTab?: "parti
         )}
       </div>
     </main>
+  );
+}
+
+function PrizesSection({
+  prizes,
+  winners,
+  loading,
+  isSuperAdmin,
+  newPrizeName,
+  setNewPrizeName,
+  newPrizePosition,
+  setNewPrizePosition,
+  isCreatingPrize,
+  isResetting,
+  onCreate,
+  onDelete,
+  onReset,
+  onRefresh,
+}: {
+  prizes: any[];
+  winners: any[];
+  loading: boolean;
+  isSuperAdmin: boolean;
+  newPrizeName: string;
+  setNewPrizeName: (v: string) => void;
+  newPrizePosition: number;
+  setNewPrizePosition: (v: number) => void;
+  isCreatingPrize: boolean;
+  isResetting: boolean;
+  onCreate: (e: React.FormEvent) => void;
+  onDelete: (id: string, name: string) => void;
+  onReset: () => void;
+  onRefresh: () => void;
+}) {
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <Card className="border-border/40 bg-card/40 backdrop-blur-sm shadow-md md:col-span-1">
+        <CardHeader>
+          <CardTitle className="text-lg font-display uppercase tracking-wider flex items-center gap-2">
+            <Gift className="w-5 h-5 text-accent" />
+            Cadastrar Prêmio
+          </CardTitle>
+          <CardDescription>
+            Cadastre os prêmios (1º Prêmio, 2º Prêmio...) que serão sorteados em /sortear.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <form onSubmit={onCreate} className="space-y-4">
+            <div className="space-y-2">
+              <Label>Posição</Label>
+              <Input
+                type="number"
+                min={1}
+                value={newPrizePosition}
+                onChange={(e) => setNewPrizePosition(Math.max(1, Number(e.target.value) || 1))}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Nome do prêmio</Label>
+              <Input
+                value={newPrizeName}
+                onChange={(e) => setNewPrizeName(e.target.value)}
+                placeholder="Ex: Smartphone"
+              />
+            </div>
+            <Button type="submit" disabled={isCreatingPrize} className="w-full uppercase tracking-widest font-sans">
+              {isCreatingPrize ? <Loader2 className="w-4 h-4 animate-spin" /> : "Adicionar Prêmio"}
+            </Button>
+          </form>
+
+          {isSuperAdmin && (
+            <div className="pt-4 border-t border-border/40 space-y-2">
+              <p className="text-xs uppercase tracking-wider text-muted-foreground">
+                Zona de risco (Super Admin)
+              </p>
+              <Button
+                variant="destructive"
+                onClick={onReset}
+                disabled={isResetting}
+                className="w-full bg-red-500/10 hover:bg-red-500/20 text-red-500 border border-red-500/20 uppercase tracking-widest text-xs"
+              >
+                {isResetting ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <>
+                    <RefreshCw className="w-4 h-4 mr-2" />
+                    Resetar Ganhadores
+                  </>
+                )}
+              </Button>
+              <p className="text-[11px] text-muted-foreground">
+                Todos voltam a concorrer e a página /ganhadores é limpa.
+              </p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card className="border-border/40 bg-card/40 backdrop-blur-sm shadow-md md:col-span-2 overflow-hidden">
+        <CardHeader className="flex flex-row items-center justify-between">
+          <div>
+            <CardTitle className="text-lg font-display uppercase tracking-wider flex items-center gap-2">
+              <Trophy className="w-5 h-5 text-accent" />
+              Prêmios & Ganhadores
+            </CardTitle>
+            <CardDescription>Prêmios cadastrados e ganhadores já sorteados.</CardDescription>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onRefresh}
+            disabled={loading}
+            className="border-border bg-secondary/30 hover:bg-secondary text-xs uppercase font-sans tracking-wider"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${loading ? "animate-spin" : ""}`} />
+            Atualizar
+          </Button>
+        </CardHeader>
+        <CardContent className="space-y-6 border-t border-border/40 pt-6">
+          {loading ? (
+            <div className="py-16 flex justify-center items-center text-muted-foreground gap-2">
+              <Loader2 className="w-6 h-6 animate-spin text-accent" /> Carregando...
+            </div>
+          ) : (
+            <>
+              <div className="space-y-2">
+                {prizes.length === 0 ? (
+                  <p className="text-sm text-muted-foreground py-6 text-center">
+                    Nenhum prêmio cadastrado.
+                  </p>
+                ) : (
+                  prizes.map((p) => {
+                    const prizeWinners = winners.filter((w) => w.prize_id === p.id);
+                    return (
+                      <div
+                        key={p.id}
+                        className="rounded-lg border border-border/40 bg-secondary/10 px-4 py-3"
+                      >
+                        <div className="flex items-center justify-between gap-3">
+                          <span className="font-semibold">
+                            {p.position}º Prêmio · {p.name}
+                          </span>
+                          <div className="flex items-center gap-3">
+                            <span className="text-xs text-muted-foreground uppercase tracking-wider">
+                              {prizeWinners.length} ganhador(es)
+                            </span>
+                            <Button
+                              variant="destructive"
+                              size="icon"
+                              onClick={() => onDelete(p.id, p.name)}
+                              className="h-8 w-8 bg-red-500/10 hover:bg-red-500/20 text-red-500 border border-red-500/20"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        </div>
+                        {prizeWinners.length > 0 && (
+                          <ul className="mt-2 space-y-1 border-t border-border/30 pt-2">
+                            {prizeWinners.map((w) => (
+                              <li key={w.id} className="flex justify-between text-sm text-muted-foreground">
+                                <span>{w.full_name}</span>
+                                <span className="text-accent tabular-nums">
+                                  {String(w.ticket_number).padStart(4, "0")}
+                                </span>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </>
+          )}
+        </CardContent>
+      </Card>
+    </div>
   );
 }

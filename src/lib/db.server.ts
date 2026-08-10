@@ -247,3 +247,125 @@ export async function getParticipantByCpfDb(cpf: string): Promise<Participant | 
   if (!data) return null;
   return toParticipant(data as ParticipantRow);
 }
+
+// ---------------- Prizes & Winners ----------------
+
+export type PrizeRow = { id: string; name: string; position: number; created_at: string };
+export type WinnerRow = {
+  id: string;
+  participant_id: string;
+  prize_id: string;
+  prize_name: string;
+  prize_position: number;
+  full_name: string;
+  ticket_number: number;
+  congregation: string | null;
+  regional: string | null;
+  created_at: string;
+};
+
+export async function listPrizesDb(): Promise<PrizeRow[]> {
+  const { data, error } = await supabaseAdmin
+    .from("prizes")
+    .select("*")
+    .order("position", { ascending: true });
+  if (error) throw new Error(error.message);
+  return (data ?? []) as PrizeRow[];
+}
+
+export async function createPrizeDb(name: string, position: number): Promise<PrizeRow> {
+  const { data, error } = await supabaseAdmin
+    .from("prizes")
+    .insert({ name: name.trim(), position })
+    .select("*")
+    .single();
+  if (error) throw new Error(error.message);
+  return data as PrizeRow;
+}
+
+export async function deletePrizeDb(id: string): Promise<boolean> {
+  const { error } = await supabaseAdmin.from("prizes").delete().eq("id", id);
+  if (error) throw new Error(error.message);
+  return true;
+}
+
+export async function listWinnersDb(): Promise<WinnerRow[]> {
+  const { data, error } = await supabaseAdmin
+    .from("winners")
+    .select("*")
+    .order("prize_position", { ascending: true })
+    .order("created_at", { ascending: true });
+  if (error) throw new Error(error.message);
+  return (data ?? []) as WinnerRow[];
+}
+
+export async function resetWinnersDb(): Promise<number> {
+  const { data, error } = await supabaseAdmin
+    .from("winners")
+    .delete()
+    .not("id", "is", null)
+    .select("id");
+  if (error) throw new Error(error.message);
+  return (data ?? []).length;
+}
+
+export async function getEligibleParticipantsDb(): Promise<
+  { id: string; full_name: string; ticket_number: number; congregation: string; regional: string }[]
+> {
+  const [{ data: participants, error }, winners] = await Promise.all([
+    supabaseAdmin.from("participants").select("id, full_name, ticket_number, congregation, regional"),
+    listWinnersDb(),
+  ]);
+  if (error) throw new Error(error.message);
+  const won = new Set(winners.map((w) => w.participant_id));
+  return ((participants ?? []) as any[])
+    .filter((p) => !won.has(p.id))
+    .map((p) => ({
+      id: p.id,
+      full_name: p.full_name,
+      ticket_number: p.ticket_number,
+      congregation: p.congregation,
+      regional: p.regional,
+    }));
+}
+
+export async function drawWinnersDb(prizeId: string, quantity: number): Promise<WinnerRow[]> {
+  const { data: prize, error: prizeError } = await supabaseAdmin
+    .from("prizes")
+    .select("*")
+    .eq("id", prizeId)
+    .maybeSingle();
+  if (prizeError) throw new Error(prizeError.message);
+  if (!prize) throw new Error("Prêmio não encontrado.");
+
+  const eligible = await getEligibleParticipantsDb();
+  if (eligible.length === 0) throw new Error("Não há participantes elegíveis para o sorteio.");
+  if (quantity > eligible.length) {
+    throw new Error(`Só existem ${eligible.length} participantes elegíveis.`);
+  }
+
+  const pool = [...eligible];
+  const picked: typeof eligible = [];
+  for (let i = 0; i < quantity; i++) {
+    const idx = Math.floor(Math.random() * pool.length);
+    picked.push(pool.splice(idx, 1)[0]!);
+  }
+
+  const { data, error } = await supabaseAdmin
+    .from("winners")
+    .insert(
+      picked.map((p) => ({
+        participant_id: p.id,
+        prize_id: prize.id,
+        prize_name: prize.name,
+        prize_position: prize.position,
+        full_name: p.full_name,
+        ticket_number: p.ticket_number,
+        congregation: p.congregation,
+        regional: p.regional,
+      })),
+    )
+    .select("*");
+  if (error) throw new Error(error.message);
+  return (data ?? []) as WinnerRow[];
+}
