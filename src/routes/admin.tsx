@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import {
@@ -19,6 +19,7 @@ import {
   ShieldAlert,
   Shield,
   UserPlus,
+  Gift,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -590,6 +591,17 @@ export function AdminPage({ defaultTab = "participants" }: { defaultTab?: "parti
             </div>
           </div>
           <div className="flex items-center gap-3">
+            <Button
+              asChild
+              variant="outline"
+              size="sm"
+              className="border-accent/30 bg-accent/10 hover:bg-accent/20 text-accent text-xs uppercase font-sans tracking-wider"
+            >
+              <Link to="/sortear">
+                <Gift className="w-3.5 h-3.5 mr-1.5 animate-pulse" />
+                Realizar Sorteio
+              </Link>
+            </Button>
             <Button
               variant="outline"
               size="sm"
