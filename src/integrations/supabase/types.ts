@@ -95,6 +95,81 @@ export type Database = {
         }
         Relationships: []
       }
+      prizes: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          position: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          position?: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          position?: number
+        }
+        Relationships: []
+      }
+      winners: {
+        Row: {
+          congregation: string | null
+          created_at: string
+          full_name: string
+          id: string
+          participant_id: string
+          prize_id: string
+          prize_name: string
+          prize_position: number
+          regional: string | null
+          ticket_number: number
+        }
+        Insert: {
+          congregation?: string | null
+          created_at?: string
+          full_name: string
+          id?: string
+          participant_id: string
+          prize_id: string
+          prize_name: string
+          prize_position?: number
+          regional?: string | null
+          ticket_number: number
+        }
+        Update: {
+          congregation?: string | null
+          created_at?: string
+          full_name?: string
+          id?: string
+          participant_id?: string
+          prize_id?: string
+          prize_name?: string
+          prize_position?: number
+          regional?: string | null
+          ticket_number?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "winners_participant_id_fkey"
+            columns: ["participant_id"]
+            isOneToOne: true
+            referencedRelation: "participants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "winners_prize_id_fkey"
+            columns: ["prize_id"]
+            isOneToOne: false
+            referencedRelation: "prizes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
