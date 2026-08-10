@@ -14,27 +14,30 @@ export type Database = {
   }
   public: {
     Tables: {
-      admin_config: {
+      admins: {
         Row: {
+          created_at: string
           email: string
-          id: number
+          id: string
+          is_super_admin: boolean
           is_temp_password: boolean
           password_hash: string
-          updated_at: string
         }
         Insert: {
+          created_at?: string
           email: string
-          id?: number
+          id?: string
+          is_super_admin?: boolean
           is_temp_password?: boolean
           password_hash: string
-          updated_at?: string
         }
         Update: {
+          created_at?: string
           email?: string
-          id?: number
+          id?: string
+          is_super_admin?: boolean
           is_temp_password?: boolean
           password_hash?: string
-          updated_at?: string
         }
         Relationships: []
       }
@@ -54,6 +57,7 @@ export type Database = {
           regional: string
           state: string
           street: string
+          ticket_number: number
         }
         Insert: {
           birth_date: string
@@ -70,6 +74,7 @@ export type Database = {
           regional: string
           state: string
           street: string
+          ticket_number?: never
         }
         Update: {
           birth_date?: string
@@ -86,6 +91,7 @@ export type Database = {
           regional?: string
           state?: string
           street?: string
+          ticket_number?: never
         }
         Relationships: []
       }
