@@ -160,14 +160,6 @@ export const getParticipantByCpf = createServerFn({ method: "POST" })
 
 // ---------------- Prêmios / Sorteio / Ganhadores ----------------
 
-async function requireAdmin(email: string, passwordHash: string, superOnly = false) {
-  const { getAdminByEmail } = await import("./db.server");
-  const admin = await getAdminByEmail(email);
-  if (!admin || admin.passwordHash !== passwordHash) throw new Error("Não autorizado");
-  if (superOnly && !admin.isSuperAdmin) throw new Error("Não autorizado");
-  return admin;
-}
-
 export const getPrizes = createServerFn({ method: "GET" }).handler(async () => {
   const { listPrizesDb } = await import("./db.server");
   return await listPrizesDb();
@@ -177,7 +169,7 @@ export const createPrizeFn = createServerFn({ method: "POST" })
   .validator((p: { email: string; passwordHash: string; name: string; position: number }) => p)
   .handler(async ({ data }) => {
     try {
-      await requireAdmin(data.email, data.passwordHash);
+      await (await import("./auth-guard.server")).requireAdmin(data.email, data.passwordHash);
       const { createPrizeDb } = await import("./db.server");
       const prize = await createPrizeDb(data.name, data.position);
       return { success: true, prize };
@@ -190,7 +182,7 @@ export const deletePrizeFn = createServerFn({ method: "POST" })
   .validator((p: { email: string; passwordHash: string; id: string }) => p)
   .handler(async ({ data }) => {
     try {
-      await requireAdmin(data.email, data.passwordHash);
+      await (await import("./auth-guard.server")).requireAdmin(data.email, data.passwordHash);
       const { deletePrizeDb } = await import("./db.server");
       await deletePrizeDb(data.id);
       return { success: true };
@@ -208,7 +200,7 @@ export const getEligibleCount = createServerFn({ method: "POST" })
   .validator((p: { email: string; passwordHash: string }) => p)
   .handler(async ({ data }) => {
     try {
-      await requireAdmin(data.email, data.passwordHash);
+      await (await import("./auth-guard.server")).requireAdmin(data.email, data.passwordHash);
       const { getEligibleParticipantsDb } = await import("./db.server");
       const eligible = await getEligibleParticipantsDb();
       return {
@@ -225,7 +217,7 @@ export const drawWinnersFn = createServerFn({ method: "POST" })
   .validator((p: { email: string; passwordHash: string; prizeId: string; quantity: number }) => p)
   .handler(async ({ data }) => {
     try {
-      await requireAdmin(data.email, data.passwordHash);
+      await (await import("./auth-guard.server")).requireAdmin(data.email, data.passwordHash);
       const { drawWinnersDb } = await import("./db.server");
       const winners = await drawWinnersDb(data.prizeId, data.quantity);
       return { success: true, winners };
@@ -238,7 +230,7 @@ export const resetWinnersFn = createServerFn({ method: "POST" })
   .validator((p: { email: string; passwordHash: string }) => p)
   .handler(async ({ data }) => {
     try {
-      await requireAdmin(data.email, data.passwordHash, true);
+      await (await import("./auth-guard.server")).requireAdmin(data.email, data.passwordHash, true);
       const { resetWinnersDb } = await import("./db.server");
       const removed = await resetWinnersDb();
       return { success: true, removed };
