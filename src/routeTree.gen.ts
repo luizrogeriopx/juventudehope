@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SuperAdminRouteImport } from './routes/super-admin'
 import { Route as SorteioRouteImport } from './routes/sorteio'
+import { Route as SortearRouteImport } from './routes/sortear'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
@@ -23,6 +24,11 @@ const SuperAdminRoute = SuperAdminRouteImport.update({
 const SorteioRoute = SorteioRouteImport.update({
   id: '/sorteio',
   path: '/sorteio',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SortearRoute = SortearRouteImport.update({
+  id: '/sortear',
+  path: '/sortear',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
@@ -45,6 +51,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/sortear': typeof SortearRoute
   '/sorteio': typeof SorteioRoute
   '/super-admin': typeof SuperAdminRoute
 }
@@ -52,6 +59,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/sortear': typeof SortearRoute
   '/sorteio': typeof SorteioRoute
   '/super-admin': typeof SuperAdminRoute
 }
@@ -60,21 +68,36 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/sortear': typeof SortearRoute
   '/sorteio': typeof SorteioRoute
   '/super-admin': typeof SuperAdminRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/admin' | '/sitemap.xml' | '/sorteio' | '/super-admin'
+  fullPaths:
+    | '/'
+    | '/admin'
+    | '/sitemap.xml'
+    | '/sortear'
+    | '/sorteio'
+    | '/super-admin'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/admin' | '/sitemap.xml' | '/sorteio' | '/super-admin'
-  id: '__root__' | '/' | '/admin' | '/sitemap.xml' | '/sorteio' | '/super-admin'
+  to: '/' | '/admin' | '/sitemap.xml' | '/sortear' | '/sorteio' | '/super-admin'
+  id:
+    | '__root__'
+    | '/'
+    | '/admin'
+    | '/sitemap.xml'
+    | '/sortear'
+    | '/sorteio'
+    | '/super-admin'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AdminRoute: typeof AdminRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
+  SortearRoute: typeof SortearRoute
   SorteioRoute: typeof SorteioRoute
   SuperAdminRoute: typeof SuperAdminRoute
 }
@@ -93,6 +116,13 @@ declare module '@tanstack/react-router' {
       path: '/sorteio'
       fullPath: '/sorteio'
       preLoaderRoute: typeof SorteioRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sortear': {
+      id: '/sortear'
+      path: '/sortear'
+      fullPath: '/sortear'
+      preLoaderRoute: typeof SortearRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/sitemap.xml': {
@@ -123,19 +153,10 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AdminRoute: AdminRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
+  SortearRoute: SortearRoute,
   SorteioRoute: SorteioRoute,
   SuperAdminRoute: SuperAdminRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
