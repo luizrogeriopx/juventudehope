@@ -19,6 +19,8 @@ import {
   ShieldAlert,
   Shield,
   UserPlus,
+  Trophy,
+  Gift,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -40,6 +42,11 @@ import {
   getAdmins,
   createAdminFn,
   deleteAdminFn,
+  getPrizes,
+  createPrizeFn,
+  deletePrizeFn,
+  getWinners,
+  resetWinnersFn,
 } from "@/lib/server-functions";
 import { REGIONALS_DATA } from "@/lib/regionals";
 
@@ -53,7 +60,9 @@ export const Route = createFileRoute("/admin")({
   component: AdminPage,
 });
 
-export function AdminPage({ defaultTab = "participants" }: { defaultTab?: "participants" | "admins" }) {
+type AdminTab = "participants" | "prizes" | "admins";
+
+export function AdminPage({ defaultTab = "participants" }: { defaultTab?: AdminTab }) {
   // Authentication states
   const [emailInput, setEmailInput] = useState("");
   const [passwordInput, setPasswordInput] = useState("");
@@ -79,7 +88,16 @@ export function AdminPage({ defaultTab = "participants" }: { defaultTab?: "parti
   const [filterCongregation, setFilterCongregation] = useState<string>("all");
 
   // Super admin / admin tab state
-  const [activeAdminTab, setActiveAdminTab] = useState<"participants" | "admins">(defaultTab);
+  const [activeAdminTab, setActiveAdminTab] = useState<AdminTab>(defaultTab);
+
+  // Prizes & winners state
+  const [prizes, setPrizes] = useState<any[]>([]);
+  const [winnersList, setWinnersList] = useState<any[]>([]);
+  const [loadingPrizes, setLoadingPrizes] = useState(false);
+  const [newPrizeName, setNewPrizeName] = useState("");
+  const [newPrizePosition, setNewPrizePosition] = useState(1);
+  const [isCreatingPrize, setIsCreatingPrize] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
   const [adminsList, setAdminsList] = useState<any[]>([]);
   const [loadingAdmins, setLoadingAdmins] = useState(false);
   const [newAdminEmail, setNewAdminEmail] = useState("");
@@ -131,6 +149,80 @@ export function AdminPage({ defaultTab = "participants" }: { defaultTab?: "parti
       loadData(adminEmail, adminPasswordHash);
     }
   }, [isAuthenticated, adminEmail, adminPasswordHash]);
+
+  const loadPrizes = async () => {
+    setLoadingPrizes(true);
+    try {
+      const [prizeList, winnerList] = await Promise.all([getPrizes(), getWinners()]);
+      setPrizes(prizeList);
+      setWinnersList(winnerList);
+      setNewPrizePosition((prizeList as any[]).length + 1);
+    } catch (error) {
+      console.error(error);
+      toast.error("Erro ao carregar prêmios.");
+    } finally {
+      setLoadingPrizes(false);
+    }
+  };
+
+  const handleCreatePrize = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newPrizeName.trim()) {
+      toast.warning("Informe o nome do prêmio.");
+      return;
+    }
+    setIsCreatingPrize(true);
+    try {
+      const result = await createPrizeFn({
+        data: {
+          email: adminEmail,
+          passwordHash: adminPasswordHash,
+          name: newPrizeName.trim(),
+          position: newPrizePosition,
+        },
+      });
+      if (result.success) {
+        toast.success("Prêmio cadastrado!");
+        setNewPrizeName("");
+        loadPrizes();
+      } else {
+        toast.error(result.error || "Erro ao cadastrar prêmio.");
+      }
+    } finally {
+      setIsCreatingPrize(false);
+    }
+  };
+
+  const handleDeletePrize = async (id: string, name: string) => {
+    if (!confirm(`Excluir o prêmio "${name}"? Os ganhadores desse prêmio também serão removidos.`)) return;
+    const result = await deletePrizeFn({
+      data: { email: adminEmail, passwordHash: adminPasswordHash, id },
+    });
+    if (result.success) {
+      toast.success("Prêmio removido.");
+      loadPrizes();
+    } else {
+      toast.error(result.error || "Erro ao remover prêmio.");
+    }
+  };
+
+  const handleResetWinners = async () => {
+    if (!confirm("Resetar todos os ganhadores? Todos voltarão a concorrer nos próximos sorteios.")) return;
+    setIsResetting(true);
+    try {
+      const result = await resetWinnersFn({
+        data: { email: adminEmail, passwordHash: adminPasswordHash },
+      });
+      if (result.success) {
+        toast.success(`Ganhadores resetados (${result.removed ?? 0} removidos).`);
+        loadPrizes();
+      } else {
+        toast.error(result.error || "Erro ao resetar ganhadores.");
+      }
+    } finally {
+      setIsResetting(false);
+    }
+  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -615,8 +707,8 @@ export function AdminPage({ defaultTab = "participants" }: { defaultTab?: "parti
 
       {/* Main Dashboard Container */}
       <div className="max-w-7xl mx-auto px-6 pt-8 space-y-6">
-        {isSuperAdmin && (
-          <div className="flex border-b border-border/40 gap-4 mb-2">
+        {(
+          <div className="flex border-b border-border/40 gap-4 mb-2 flex-wrap">
             <button
               onClick={() => setActiveAdminTab("participants")}
               className={`pb-3 text-sm font-sans uppercase tracking-wider font-semibold border-b-2 transition-colors ${
@@ -627,6 +719,20 @@ export function AdminPage({ defaultTab = "participants" }: { defaultTab?: "parti
             >
               Participantes
             </button>
+            <button
+              onClick={() => {
+                setActiveAdminTab("prizes");
+                loadPrizes();
+              }}
+              className={`pb-3 text-sm font-sans uppercase tracking-wider font-semibold border-b-2 transition-colors ${
+                activeAdminTab === "prizes"
+                  ? "border-accent text-accent"
+                  : "border-transparent text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              Prêmios & Ganhadores
+            </button>
+            {isSuperAdmin && (
             <button
               onClick={() => {
                 setActiveAdminTab("admins");
@@ -640,10 +746,28 @@ export function AdminPage({ defaultTab = "participants" }: { defaultTab?: "parti
             >
               Gerenciar Administradores
             </button>
+            )}
           </div>
         )}
 
-        {activeAdminTab === "participants" ? (
+        {activeAdminTab === "prizes" ? (
+          <PrizesSection
+            prizes={prizes}
+            winners={winnersList}
+            loading={loadingPrizes}
+            isSuperAdmin={isSuperAdmin}
+            newPrizeName={newPrizeName}
+            setNewPrizeName={setNewPrizeName}
+            newPrizePosition={newPrizePosition}
+            setNewPrizePosition={setNewPrizePosition}
+            isCreatingPrize={isCreatingPrize}
+            isResetting={isResetting}
+            onCreate={handleCreatePrize}
+            onDelete={handleDeletePrize}
+            onReset={handleResetWinners}
+            onRefresh={loadPrizes}
+          />
+        ) : activeAdminTab === "participants" ? (
           <>
             {/* Stats Row */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
