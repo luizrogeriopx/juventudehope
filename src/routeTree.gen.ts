@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AdminRouteImport } from './routes/admin'
+import { Route as GanhadoresRouteImport } from './routes/ganhadores'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as SortearRouteImport } from './routes/sortear'
 import { Route as SorteioRouteImport } from './routes/sorteio'
@@ -24,6 +25,11 @@ const IndexRoute = IndexRouteImport.update({
 const AdminRoute = AdminRouteImport.update({
   id: '/admin',
   path: '/admin',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const GanhadoresRoute = GanhadoresRouteImport.update({
+  id: '/ganhadores',
+  path: '/ganhadores',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
@@ -50,6 +56,7 @@ const SuperAdminRoute = SuperAdminRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
+  '/ganhadores': typeof GanhadoresRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/sortear': typeof SortearRoute
   '/sorteio': typeof SorteioRoute
@@ -58,6 +65,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
+  '/ganhadores': typeof GanhadoresRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/sortear': typeof SortearRoute
   '/sorteio': typeof SorteioRoute
@@ -67,6 +75,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
+  '/ganhadores': typeof GanhadoresRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/sortear': typeof SortearRoute
   '/sorteio': typeof SorteioRoute
@@ -75,13 +84,27 @@ export interface FileRoutesById {
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    '/' | '/admin' | '/sitemap.xml' | '/sortear' | '/sorteio' | '/super-admin'
+    | '/'
+    | '/admin'
+    | '/ganhadores'
+    | '/sitemap.xml'
+    | '/sortear'
+    | '/sorteio'
+    | '/super-admin'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/admin' | '/sitemap.xml' | '/sortear' | '/sorteio' | '/super-admin'
+  to:
+    | '/'
+    | '/admin'
+    | '/ganhadores'
+    | '/sitemap.xml'
+    | '/sortear'
+    | '/sorteio'
+    | '/super-admin'
   id:
     | '__root__'
     | '/'
     | '/admin'
+    | '/ganhadores'
     | '/sitemap.xml'
     | '/sortear'
     | '/sorteio'
@@ -91,6 +114,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AdminRoute: typeof AdminRoute
+  GanhadoresRoute: typeof GanhadoresRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   SortearRoute: typeof SortearRoute
   SorteioRoute: typeof SorteioRoute
@@ -111,6 +135,13 @@ declare module '@tanstack/react-router' {
       path: '/admin'
       fullPath: '/admin'
       preLoaderRoute: typeof AdminRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/ganhadores': {
+      id: '/ganhadores'
+      path: '/ganhadores'
+      fullPath: '/ganhadores'
+      preLoaderRoute: typeof GanhadoresRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/sitemap.xml': {
@@ -147,6 +178,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AdminRoute: AdminRoute,
+  GanhadoresRoute: GanhadoresRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   SortearRoute: SortearRoute,
   SorteioRoute: SorteioRoute,

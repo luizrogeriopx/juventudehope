@@ -14,27 +14,30 @@ export type Database = {
   }
   public: {
     Tables: {
-      admin_config: {
+      admins: {
         Row: {
+          created_at: string
           email: string
-          id: number
+          id: string
+          is_super_admin: boolean
           is_temp_password: boolean
           password_hash: string
-          updated_at: string
         }
         Insert: {
+          created_at?: string
           email: string
-          id?: number
+          id?: string
+          is_super_admin?: boolean
           is_temp_password?: boolean
           password_hash: string
-          updated_at?: string
         }
         Update: {
+          created_at?: string
           email?: string
-          id?: number
+          id?: string
+          is_super_admin?: boolean
           is_temp_password?: boolean
           password_hash?: string
-          updated_at?: string
         }
         Relationships: []
       }
@@ -54,6 +57,7 @@ export type Database = {
           regional: string
           state: string
           street: string
+          ticket_number: number
         }
         Insert: {
           birth_date: string
@@ -70,6 +74,7 @@ export type Database = {
           regional: string
           state: string
           street: string
+          ticket_number?: never
         }
         Update: {
           birth_date?: string
@@ -86,8 +91,84 @@ export type Database = {
           regional?: string
           state?: string
           street?: string
+          ticket_number?: never
         }
         Relationships: []
+      }
+      prizes: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          position: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          position?: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          position?: number
+        }
+        Relationships: []
+      }
+      winners: {
+        Row: {
+          congregation: string | null
+          created_at: string
+          full_name: string
+          id: string
+          participant_id: string
+          prize_id: string
+          prize_name: string
+          prize_position: number
+          regional: string | null
+          ticket_number: number
+        }
+        Insert: {
+          congregation?: string | null
+          created_at?: string
+          full_name: string
+          id?: string
+          participant_id: string
+          prize_id: string
+          prize_name: string
+          prize_position?: number
+          regional?: string | null
+          ticket_number: number
+        }
+        Update: {
+          congregation?: string | null
+          created_at?: string
+          full_name?: string
+          id?: string
+          participant_id?: string
+          prize_id?: string
+          prize_name?: string
+          prize_position?: number
+          regional?: string | null
+          ticket_number?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "winners_participant_id_fkey"
+            columns: ["participant_id"]
+            isOneToOne: true
+            referencedRelation: "participants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "winners_prize_id_fkey"
+            columns: ["prize_id"]
+            isOneToOne: false
+            referencedRelation: "prizes"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
