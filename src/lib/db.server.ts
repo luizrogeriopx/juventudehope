@@ -369,3 +369,23 @@ export async function drawWinnersDb(prizeId: string, quantity: number): Promise<
   if (error) throw new Error(error.message);
   return (data ?? []) as WinnerRow[];
 }
+
+export async function updatePrizeDb(id: string, name: string, position: number): Promise<PrizeRow> {
+  const cleanedName = name.trim();
+  const { data: prize, error: prizeError } = await supabaseAdmin
+    .from("prizes")
+    .update({ name: cleanedName, position })
+    .eq("id", id)
+    .select("*")
+    .single();
+  if (prizeError) throw new Error(prizeError.message);
+
+  // Update denormalized prize details in winners table
+  const { error: winnerError } = await supabaseAdmin
+    .from("winners")
+    .update({ prize_name: cleanedName, prize_position: position })
+    .eq("prize_id", id);
+  if (winnerError) throw new Error(winnerError.message);
+
+  return prize as PrizeRow;
+}

@@ -238,3 +238,24 @@ export const resetWinnersFn = createServerFn({ method: "POST" })
       return { success: false, error: error.message || "Erro desconhecido" };
     }
   });
+
+export const updatePrizeFn = createServerFn({ method: "POST" })
+  .validator(
+    (p: {
+      email: string;
+      passwordHash: string;
+      id: string;
+      name: string;
+      position: number;
+    }) => p
+  )
+  .handler(async ({ data }) => {
+    try {
+      await (await import("./auth-guard.server")).requireAdmin(data.email, data.passwordHash);
+      const { updatePrizeDb } = await import("./db.server");
+      const prize = await updatePrizeDb(data.id, data.name, data.position);
+      return { success: true, prize };
+    } catch (error: any) {
+      return { success: false, error: error.message || "Erro desconhecido" };
+    }
+  });

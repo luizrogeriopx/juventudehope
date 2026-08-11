@@ -21,6 +21,7 @@ import {
   UserPlus,
   Trophy,
   Gift,
+  Pencil,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -45,6 +46,7 @@ import {
   getPrizes,
   createPrizeFn,
   deletePrizeFn,
+  updatePrizeFn,
   getWinners,
   resetWinnersFn,
 } from "@/lib/server-functions";
@@ -203,6 +205,18 @@ export function AdminPage({ defaultTab = "participants" }: { defaultTab?: AdminT
       loadPrizes();
     } else {
       toast.error(result.error || "Erro ao remover prêmio.");
+    }
+  };
+
+  const handleUpdatePrize = async (id: string, name: string, position: number) => {
+    const result = await updatePrizeFn({
+      data: { email: adminEmail, passwordHash: adminPasswordHash, id, name, position },
+    });
+    if (result.success) {
+      toast.success("Prêmio atualizado.");
+      loadPrizes();
+    } else {
+      toast.error(result.error || "Erro ao atualizar prêmio.");
     }
   };
 
@@ -775,6 +789,7 @@ export function AdminPage({ defaultTab = "participants" }: { defaultTab?: AdminT
             isResetting={isResetting}
             onCreate={handleCreatePrize}
             onDelete={handleDeletePrize}
+            onUpdate={handleUpdatePrize}
             onReset={handleResetWinners}
             onRefresh={loadPrizes}
           />
@@ -1176,6 +1191,7 @@ function PrizesSection({
   isResetting,
   onCreate,
   onDelete,
+  onUpdate,
   onReset,
   onRefresh,
 }: {
@@ -1191,55 +1207,70 @@ function PrizesSection({
   isResetting: boolean;
   onCreate: (e: React.FormEvent) => void;
   onDelete: (id: string, name: string) => void;
+  onUpdate: (id: string, name: string, position: number) => void;
   onReset: () => void;
   onRefresh: () => void;
 }) {
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editPosition, setEditPosition] = useState(1);
+
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-      <Card className="border-border/40 bg-card/40 backdrop-blur-sm shadow-md md:col-span-1">
-        <CardHeader>
-          <CardTitle className="text-lg font-display uppercase tracking-wider flex items-center gap-2">
-            <Gift className="w-5 h-5 text-accent" />
-            Cadastrar Prêmio
-          </CardTitle>
-          <CardDescription>
-            Cadastre os prêmios (1º Prêmio, 2º Prêmio...) que serão sorteados em /sortear.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <form onSubmit={onCreate} className="space-y-4">
-            <div className="space-y-2">
-              <Label>Posição</Label>
-              <Input
-                type="number"
-                min={1}
-                value={newPrizePosition}
-                onChange={(e) => setNewPrizePosition(Math.max(1, Number(e.target.value) || 1))}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Nome do prêmio</Label>
-              <Input
-                value={newPrizeName}
-                onChange={(e) => setNewPrizeName(e.target.value)}
-                placeholder="Ex: Smartphone"
-              />
-            </div>
-            <Button type="submit" disabled={isCreatingPrize} className="w-full uppercase tracking-widest font-sans">
-              {isCreatingPrize ? <Loader2 className="w-4 h-4 animate-spin" /> : "Adicionar Prêmio"}
-            </Button>
-          </form>
+      <div className="md:col-span-1 space-y-6">
+        <Card className="border-border/40 bg-card/40 backdrop-blur-sm shadow-md">
+          <CardHeader>
+            <CardTitle className="text-lg font-display uppercase tracking-wider flex items-center gap-2">
+              <Gift className="w-5 h-5 text-accent" />
+              Cadastrar Prêmio
+            </CardTitle>
+            <CardDescription>
+              Cadastre os prêmios (1º Prêmio, 2º Prêmio...) que serão sorteados em /sortear.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={onCreate} className="space-y-4">
+              <div className="space-y-2">
+                <Label>Posição</Label>
+                <Input
+                  type="number"
+                  min={1}
+                  value={newPrizePosition}
+                  onChange={(e) => setNewPrizePosition(Math.max(1, Number(e.target.value) || 1))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Nome do prêmio</Label>
+                <Input
+                  value={newPrizeName}
+                  onChange={(e) => setNewPrizeName(e.target.value)}
+                  placeholder="Ex: Smartphone"
+                />
+              </div>
+              <Button type="submit" disabled={isCreatingPrize} className="w-full uppercase tracking-widest font-sans">
+                {isCreatingPrize ? <Loader2 className="w-4 h-4 animate-spin" /> : "Adicionar Prêmio"}
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
 
-          {isSuperAdmin && (
-            <div className="pt-4 border-t border-border/40 space-y-2">
-              <p className="text-xs uppercase tracking-wider text-muted-foreground">
-                Zona de risco (Super Admin)
-              </p>
+        {isSuperAdmin && (
+          <Card className="border-red-500/20 bg-red-500/5 backdrop-blur-sm shadow-md">
+            <CardHeader>
+              <CardTitle className="text-base font-display uppercase tracking-wider text-red-500 flex items-center gap-2">
+                <ShieldAlert className="w-5 h-5 text-red-500" />
+                Resetar Ganhadores
+              </CardTitle>
+              <CardDescription>
+                Apaga permanentemente todos os registros de ganhadores.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-2">
               <Button
                 variant="destructive"
                 onClick={onReset}
                 disabled={isResetting}
-                className="w-full bg-red-500/10 hover:bg-red-500/20 text-red-500 border border-red-500/20 uppercase tracking-widest text-xs"
+                className="w-full bg-red-500/10 hover:bg-red-500/20 text-red-500 border border-red-500/20 uppercase tracking-widest text-xs py-4"
               >
                 {isResetting ? (
                   <Loader2 className="w-4 h-4 animate-spin" />
@@ -1250,13 +1281,13 @@ function PrizesSection({
                   </>
                 )}
               </Button>
-              <p className="text-[11px] text-muted-foreground">
-                Todos voltam a concorrer e a página /ganhadores é limpa.
+              <p className="text-[11px] text-muted-foreground text-center">
+                Os prêmios cadastrados NÃO serão apagados. Todos os participantes voltam a concorrer.
               </p>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+            </CardContent>
+          </Card>
+        )}
+      </div>
 
       <Card className="border-border/40 bg-card/40 backdrop-blur-sm shadow-md md:col-span-2 overflow-hidden">
         <CardHeader className="flex flex-row items-center justify-between">
@@ -1293,27 +1324,92 @@ function PrizesSection({
                 ) : (
                   prizes.map((p) => {
                     const prizeWinners = winners.filter((w) => w.prize_id === p.id);
+                    const isEditing = editingId === p.id;
+
                     return (
                       <div
                         key={p.id}
                         className="rounded-lg border border-border/40 bg-secondary/10 px-4 py-3"
                       >
-                        <div className="flex items-center justify-between gap-3">
-                          <span className="font-semibold">
-                            {p.position}º Prêmio · {p.name}
-                          </span>
-                          <div className="flex items-center gap-3">
-                            <span className="text-xs text-muted-foreground uppercase tracking-wider">
-                              {prizeWinners.length} ganhador(es)
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                          {isEditing ? (
+                            <div className="flex items-center gap-2 flex-1 min-w-0">
+                              <Input
+                                type="number"
+                                min={1}
+                                value={editPosition}
+                                onChange={(e) => setEditPosition(Math.max(1, Number(e.target.value) || 1))}
+                                className="w-16 h-8 text-sm"
+                              />
+                              <span className="text-muted-foreground text-xs uppercase font-sans">º</span>
+                              <Input
+                                value={editName}
+                                onChange={(e) => setEditName(e.target.value)}
+                                className="flex-1 h-8 text-sm min-w-[120px]"
+                                placeholder="Nome do prêmio"
+                              />
+                            </div>
+                          ) : (
+                            <span className="font-semibold">
+                              {p.position}º Prêmio · {p.name}
                             </span>
-                            <Button
-                              variant="destructive"
-                              size="icon"
-                              onClick={() => onDelete(p.id, p.name)}
-                              className="h-8 w-8 bg-red-500/10 hover:bg-red-500/20 text-red-500 border border-red-500/20"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
+                          )}
+
+                          <div className="flex items-center gap-2 shrink-0">
+                            {isEditing ? (
+                              <>
+                                <Button
+                                  size="sm"
+                                  onClick={() => {
+                                    if (!editName.trim()) {
+                                      toast.warning("O nome do prêmio não pode ser vazio.");
+                                      return;
+                                    }
+                                    onUpdate(p.id, editName, editPosition);
+                                    setEditingId(null);
+                                  }}
+                                  className="h-8 text-xs px-3"
+                                >
+                                  Salvar
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => setEditingId(null)}
+                                  className="h-8 text-xs px-3"
+                                >
+                                  Cancelar
+                                </Button>
+                              </>
+                            ) : (
+                              <>
+                                <span className="text-xs text-muted-foreground uppercase tracking-wider mr-1">
+                                  {prizeWinners.length} ganhador(es)
+                                </span>
+                                <Button
+                                  variant="outline"
+                                  size="icon"
+                                  onClick={() => {
+                                    setEditingId(p.id);
+                                    setEditName(p.name);
+                                    setEditPosition(p.position);
+                                  }}
+                                  className="h-8 w-8 border-border bg-secondary/30 hover:bg-secondary text-muted-foreground hover:text-foreground"
+                                  title="Editar prêmio"
+                                >
+                                  <Pencil className="w-3.5 h-3.5" />
+                                </Button>
+                                <Button
+                                  variant="destructive"
+                                  size="icon"
+                                  onClick={() => onDelete(p.id, p.name)}
+                                  className="h-8 w-8 bg-red-500/10 hover:bg-red-500/20 text-red-500 border border-red-500/20"
+                                  title="Excluir prêmio"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </Button>
+                              </>
+                            )}
                           </div>
                         </div>
                         {prizeWinners.length > 0 && (
