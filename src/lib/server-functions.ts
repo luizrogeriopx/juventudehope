@@ -230,7 +230,7 @@ export const resetWinnersFn = createServerFn({ method: "POST" })
   .validator((p: { email: string; passwordHash: string }) => p)
   .handler(async ({ data }) => {
     try {
-      await (await import("./auth-guard.server")).requireAdmin(data.email, data.passwordHash, true);
+      await (await import("./auth-guard.server")).requireAdmin(data.email, data.passwordHash, false);
       const { resetWinnersDb } = await import("./db.server");
       const removed = await resetWinnersDb();
       return { success: true, removed };

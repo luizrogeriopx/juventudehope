@@ -1254,39 +1254,37 @@ function PrizesSection({
           </CardContent>
         </Card>
 
-        {isSuperAdmin && (
-          <Card className="border-red-500/20 bg-red-500/5 backdrop-blur-sm shadow-md">
-            <CardHeader>
-              <CardTitle className="text-base font-display uppercase tracking-wider text-red-500 flex items-center gap-2">
-                <ShieldAlert className="w-5 h-5 text-red-500" />
-                Resetar Ganhadores
-              </CardTitle>
-              <CardDescription>
-                Apaga permanentemente todos os registros de ganhadores.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              <Button
-                variant="destructive"
-                onClick={onReset}
-                disabled={isResetting}
-                className="w-full bg-red-500/10 hover:bg-red-500/20 text-red-500 border border-red-500/20 uppercase tracking-widest text-xs py-4"
-              >
-                {isResetting ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <>
-                    <RefreshCw className="w-4 h-4 mr-2" />
-                    Resetar Ganhadores
-                  </>
-                )}
-              </Button>
-              <p className="text-[11px] text-muted-foreground text-center">
-                Os prêmios cadastrados NÃO serão apagados. Todos os participantes voltam a concorrer.
-              </p>
-            </CardContent>
-          </Card>
-        )}
+        <Card className="border-red-500/20 bg-red-500/5 backdrop-blur-sm shadow-md">
+          <CardHeader>
+            <CardTitle className="text-base font-display uppercase tracking-wider text-red-500 flex items-center gap-2">
+              <ShieldAlert className="w-5 h-5 text-red-500" />
+              Resetar Ganhadores
+            </CardTitle>
+            <CardDescription>
+              Apaga permanentemente todos os registros de ganhadores.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            <Button
+              variant="destructive"
+              onClick={onReset}
+              disabled={isResetting}
+              className="w-full bg-red-500/10 hover:bg-red-500/20 text-red-500 border border-red-500/20 uppercase tracking-widest text-xs py-4"
+            >
+              {isResetting ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <>
+                  <RefreshCw className="w-4 h-4 mr-2" />
+                  Resetar Ganhadores
+                </>
+              )}
+            </Button>
+            <p className="text-[11px] text-muted-foreground text-center">
+              Os prêmios cadastrados NÃO serão apagados. Todos os participantes voltam a concorrer.
+            </p>
+          </CardContent>
+        </Card>
       </div>
 
       <Card className="border-border/40 bg-card/40 backdrop-blur-sm shadow-md md:col-span-2 overflow-hidden">
