@@ -19,6 +19,7 @@ import {
   getPrizes,
   getEligibleCount,
   drawWinnersFn,
+  getWinners,
 } from "@/lib/server-functions";
 
 export const Route = createFileRoute("/sortear")({
@@ -88,11 +89,14 @@ function SortearPage() {
   const loadData = async (email: string, hash: string) => {
     setLoadingData(true);
     try {
-      const [prizeList, elig] = await Promise.all([
+      const [prizeList, elig, winnersList] = await Promise.all([
         getPrizes(),
         getEligibleCount({ data: { email, passwordHash: hash } }),
+        getWinners(),
       ]);
-      setPrizes(prizeList as Prize[]);
+      const drawnPrizeIds = new Set(winnersList.map((w) => w.prize_id));
+      const availablePrizes = (prizeList as Prize[]).filter((p) => !drawnPrizeIds.has(p.id));
+      setPrizes(availablePrizes);
       setEligible(elig.tickets ?? []);
       setEligibleCount(elig.count ?? 0);
     } catch (error) {
@@ -198,6 +202,12 @@ function SortearPage() {
     loadData(adminEmail, adminPasswordHash);
   };
 
+  const handleNextDraw = () => {
+    setWinners([]);
+    setRollNumbers([]);
+    setSelectedPrize("");
+  };
+
   if (!isAuthenticated) {
     return (
       <main className="grain-bg min-h-screen flex items-center justify-center px-6 py-16">
@@ -289,7 +299,7 @@ function SortearPage() {
           <CardContent className="pt-6 grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
             <div className="space-y-2 md:col-span-1">
               <Label>Prêmio</Label>
-              <Select value={selectedPrize} onValueChange={setSelectedPrize} disabled={rolling}>
+              <Select value={selectedPrize} onValueChange={setSelectedPrize} disabled={rolling || winners.length > 0}>
                 <SelectTrigger>
                   <SelectValue placeholder={prizes.length ? "Escolha o prêmio" : "Nenhum prêmio cadastrado"} />
                 </SelectTrigger>
@@ -308,25 +318,34 @@ function SortearPage() {
                 type="number"
                 min={1}
                 value={quantity}
-                disabled={rolling}
+                disabled={rolling || winners.length > 0}
                 onChange={(e) => setQuantity(Math.max(1, Number(e.target.value) || 1))}
               />
             </div>
-            <Button
-              onClick={handleDraw}
-              disabled={rolling || !selectedPrize}
-              className="w-full py-6 text-base uppercase tracking-widest font-display"
-            >
-              {rolling ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" /> Sorteando...
-                </>
-              ) : (
-                <>
-                  <Sparkles className="w-4 h-4 mr-2" /> Sortear
-                </>
-              )}
-            </Button>
+            {winners.length > 0 && !rolling ? (
+              <Button
+                onClick={handleNextDraw}
+                className="w-full py-6 text-base uppercase tracking-widest font-display bg-secondary hover:bg-secondary/80 border border-border text-foreground"
+              >
+                <RefreshCw className="w-4 h-4 mr-2" /> Próximo Sorteio
+              </Button>
+            ) : (
+              <Button
+                onClick={handleDraw}
+                disabled={rolling || !selectedPrize}
+                className="w-full py-6 text-base uppercase tracking-widest font-display"
+              >
+                {rolling ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" /> Sorteando...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-4 h-4 mr-2" /> Sortear
+                  </>
+                )}
+              </Button>
+            )}
             <p className="text-xs text-muted-foreground md:col-span-3 uppercase tracking-wider">
               Participantes elegíveis: <span className="text-accent font-bold">{eligibleCount}</span>
             </p>
