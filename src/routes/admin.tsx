@@ -1239,6 +1239,8 @@ function PrizesSection({
   onUpdate: (id: string, name: string, position: number) => void;
   onReset: () => void;
   onRefresh: () => void;
+  resettingPrizeId: string | null;
+  onResetPrize: (id: string, name: string) => void;
 }) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
