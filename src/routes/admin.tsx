@@ -1429,6 +1429,20 @@ function PrizesSection({
                                   <Pencil className="w-3.5 h-3.5" />
                                 </Button>
                                 <Button
+                                  variant="outline"
+                                  size="icon"
+                                  onClick={() => onResetPrize(p.id, `${p.position}º Prêmio · ${p.name}`)}
+                                  disabled={prizeWinners.length === 0 || resettingPrizeId === p.id}
+                                  className="h-8 w-8 border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20 text-amber-500"
+                                  title="Resetar ganhadores deste prêmio"
+                                >
+                                  {resettingPrizeId === p.id ? (
+                                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                  ) : (
+                                    <RefreshCw className="w-3.5 h-3.5" />
+                                  )}
+                                </Button>
+                                <Button
                                   variant="destructive"
                                   size="icon"
                                   onClick={() => onDelete(p.id, p.name)}
