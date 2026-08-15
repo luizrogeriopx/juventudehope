@@ -49,6 +49,7 @@ import {
   updatePrizeFn,
   getWinners,
   resetWinnersFn,
+  resetPrizeWinnersFn,
 } from "@/lib/server-functions";
 import { REGIONALS_DATA } from "@/lib/regionals";
 
@@ -100,6 +101,7 @@ export function AdminPage({ defaultTab = "participants" }: { defaultTab?: AdminT
   const [newPrizePosition, setNewPrizePosition] = useState(1);
   const [isCreatingPrize, setIsCreatingPrize] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
+  const [resettingPrizeId, setResettingPrizeId] = useState<string | null>(null);
   const [adminsList, setAdminsList] = useState<any[]>([]);
   const [loadingAdmins, setLoadingAdmins] = useState(false);
   const [newAdminEmail, setNewAdminEmail] = useState("");
@@ -235,6 +237,29 @@ export function AdminPage({ defaultTab = "participants" }: { defaultTab?: AdminT
       }
     } finally {
       setIsResetting(false);
+    }
+  };
+
+  const handleResetPrizeWinners = async (prizeId: string, prizeName: string) => {
+    if (
+      !confirm(
+        `Resetar os ganhadores do prêmio "${prizeName}"? Eles voltarão a concorrer nos próximos sorteios.`,
+      )
+    )
+      return;
+    setResettingPrizeId(prizeId);
+    try {
+      const result = await resetPrizeWinnersFn({
+        data: { email: adminEmail, passwordHash: adminPasswordHash, prizeId },
+      });
+      if (result.success) {
+        toast.success(`Ganhadores do prêmio resetados (${result.removed ?? 0} removidos).`);
+        loadPrizes();
+      } else {
+        toast.error(result.error || "Erro ao resetar ganhadores do prêmio.");
+      }
+    } finally {
+      setResettingPrizeId(null);
     }
   };
 
@@ -791,6 +816,8 @@ export function AdminPage({ defaultTab = "participants" }: { defaultTab?: AdminT
             onDelete={handleDeletePrize}
             onUpdate={handleUpdatePrize}
             onReset={handleResetWinners}
+            resettingPrizeId={resettingPrizeId}
+            onResetPrize={handleResetPrizeWinners}
             onRefresh={loadPrizes}
           />
         ) : activeAdminTab === "participants" ? (
@@ -1194,6 +1221,8 @@ function PrizesSection({
   onUpdate,
   onReset,
   onRefresh,
+  resettingPrizeId,
+  onResetPrize,
 }: {
   prizes: any[];
   winners: any[];
@@ -1210,6 +1239,8 @@ function PrizesSection({
   onUpdate: (id: string, name: string, position: number) => void;
   onReset: () => void;
   onRefresh: () => void;
+  resettingPrizeId: string | null;
+  onResetPrize: (id: string, name: string) => void;
 }) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
@@ -1396,6 +1427,20 @@ function PrizesSection({
                                   title="Editar prêmio"
                                 >
                                   <Pencil className="w-3.5 h-3.5" />
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="icon"
+                                  onClick={() => onResetPrize(p.id, `${p.position}º Prêmio · ${p.name}`)}
+                                  disabled={prizeWinners.length === 0 || resettingPrizeId === p.id}
+                                  className="h-8 w-8 border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20 text-amber-500"
+                                  title="Resetar ganhadores deste prêmio"
+                                >
+                                  {resettingPrizeId === p.id ? (
+                                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                  ) : (
+                                    <RefreshCw className="w-3.5 h-3.5" />
+                                  )}
                                 </Button>
                                 <Button
                                   variant="destructive"
