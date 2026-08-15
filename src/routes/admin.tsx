@@ -49,6 +49,7 @@ import {
   updatePrizeFn,
   getWinners,
   resetWinnersFn,
+  resetPrizeWinnersFn,
 } from "@/lib/server-functions";
 import { REGIONALS_DATA } from "@/lib/regionals";
 
@@ -235,6 +236,29 @@ export function AdminPage({ defaultTab = "participants" }: { defaultTab?: AdminT
       }
     } finally {
       setIsResetting(false);
+    }
+  };
+
+  const handleResetPrizeWinners = async (prizeId: string, prizeName: string) => {
+    if (
+      !confirm(
+        `Resetar os ganhadores do prêmio "${prizeName}"? Eles voltarão a concorrer nos próximos sorteios.`,
+      )
+    )
+      return;
+    setResettingPrizeId(prizeId);
+    try {
+      const result = await resetPrizeWinnersFn({
+        data: { email: adminEmail, passwordHash: adminPasswordHash, prizeId },
+      });
+      if (result.success) {
+        toast.success(`Ganhadores do prêmio resetados (${result.removed ?? 0} removidos).`);
+        loadPrizes();
+      } else {
+        toast.error(result.error || "Erro ao resetar ganhadores do prêmio.");
+      }
+    } finally {
+      setResettingPrizeId(null);
     }
   };
 
