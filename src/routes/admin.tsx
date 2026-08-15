@@ -101,6 +101,7 @@ export function AdminPage({ defaultTab = "participants" }: { defaultTab?: AdminT
   const [newPrizePosition, setNewPrizePosition] = useState(1);
   const [isCreatingPrize, setIsCreatingPrize] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
+  const [resettingPrizeId, setResettingPrizeId] = useState<string | null>(null);
   const [adminsList, setAdminsList] = useState<any[]>([]);
   const [loadingAdmins, setLoadingAdmins] = useState(false);
   const [newAdminEmail, setNewAdminEmail] = useState("");
