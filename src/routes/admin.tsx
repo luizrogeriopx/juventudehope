@@ -816,6 +816,8 @@ export function AdminPage({ defaultTab = "participants" }: { defaultTab?: AdminT
             onDelete={handleDeletePrize}
             onUpdate={handleUpdatePrize}
             onReset={handleResetWinners}
+            resettingPrizeId={resettingPrizeId}
+            onResetPrize={handleResetPrizeWinners}
             onRefresh={loadPrizes}
           />
         ) : activeAdminTab === "participants" ? (
@@ -1219,6 +1221,8 @@ function PrizesSection({
   onUpdate,
   onReset,
   onRefresh,
+  resettingPrizeId,
+  onResetPrize,
 }: {
   prizes: any[];
   winners: any[];
