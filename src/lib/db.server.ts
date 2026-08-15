@@ -309,6 +309,16 @@ export async function resetWinnersDb(): Promise<number> {
   return (data ?? []).length;
 }
 
+export async function resetWinnersByPrizeDb(prizeId: string): Promise<number> {
+  const { data, error } = await supabaseAdmin
+    .from("winners")
+    .delete()
+    .eq("prize_id", prizeId)
+    .select("id");
+  if (error) throw new Error(error.message);
+  return (data ?? []).length;
+}
+
 export async function getEligibleParticipantsDb(): Promise<
   { id: string; full_name: string; ticket_number: number; congregation: string; regional: string }[]
 > {
